@@ -1,0 +1,23 @@
+
+# Ignore build outputs
+build/
+
+# Ignore local benchmark/update artifacts
+KEEP_benchmarks_updates/
+
+# Ignore any directory (or file) whose name starts with "backup"
+backup*/
+
+# Ignore local benchmark/update artifacts
+KEEP_benchmarks_updates/
+
+# Ignore any backup* directory
+backup*/
+
+KEEP_benchmarks_updates/
+backup*/
+
+# ignore these entirely
+KEEP_benchmarks_updates/
+backup*/
+build/
