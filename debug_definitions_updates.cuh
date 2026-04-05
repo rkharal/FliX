@@ -13,9 +13,10 @@
 //#define PRINT_PROCESS_INSERTS_DEBUG
 //#define PRINT_PROCESS_INSERTS_END
 //#define PRINT_REBUILD_DATA_END
+#define PRINT_REBUILD_MERGE_DATA
 //#define PRINT_PROCESS_DELETES_END
 //----#define DEBUG_PRINT_REUSE_LIST
-// #define PRINT_LOOKUPS_END
+//#define PRINT_LOOKUPS_END
 //#define PRINT_GENERATED_KEYS
 //------PRINT_REMOVE_VALUES
 //#define PRINT_LOOKUP_VALUES
@@ -193,7 +194,7 @@ __device__ __host__ inline void print_vars(const char* names, T first, Args... a
 #endif
 
 //--------------------- Device-side debugging ** Inserts ** ---------------------//
-#define ENABLE_ERROR_INSERTS_DEVICE
+//#define ENABLE_ERROR_INSERTS_DEVICE
 #ifdef ENABLE_ERROR_INSERTS_DEVICE
     #define ERROR_INSERTS(msg, ...) PRINT_DEVICE(msg, ##__VA_ARGS__)
 #else
@@ -312,7 +313,7 @@ __device__ __host__ inline void print_vars(const char* names, T first, Args... a
 #endif
 
 //--------------------- Device-side debugging ** REBUILD **
-//#define ENABLE_DEBUG_REBUILD_DEV
+#define ENABLE_DEBUG_REBUILD_DEV
 #ifdef ENABLE_DEBUG_REBUILD_DEV
     #define DEBUG_REBUILD_DEV(msg, ...) PRINT_DEVICE(msg, ##__VA_ARGS__)
 #else

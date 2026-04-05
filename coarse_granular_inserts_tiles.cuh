@@ -555,6 +555,85 @@ DEVICEQUALIFIER void process_inserts_tile(
 }
 // file: update_kernel_tile.cuh
 
+
+
+
+template <typename key_type>
+GLOBALQUALIFIER void update_kernel_tile_inserts_new(
+    updatable_cg_params* __restrict__ launch_params,
+    const key_type* __restrict__ update_list,
+    const smallsize* __restrict__ offsets,
+    smallsize update_size)
+{
+    const key_type* __restrict__ maxbuf =
+        static_cast<const key_type*>(launch_params->maxvalues);
+
+    const smallsize partition_count_with_overflow = launch_params->partition_count_with_overflow;
+
+    coop_g::thread_block block = coop_g::this_thread_block();
+    coop_g::thread_block_tile<TILE_SIZE> tile = coop_g::tiled_partition<TILE_SIZE>(block);
+
+    const int tile_id = static_cast<int>(blockIdx.x) * (static_cast<int>(blockDim.x) / static_cast<int>(tile.size())) +
+                        static_cast<int>(tile.meta_group_rank());
+    const smallsize this_tid = tile.thread_rank();
+
+
+    if (tile_id >= (partition_count_with_overflow)) return;
+
+    const key_type maxkey = maxbuf[tile_id];
+    const key_type minkey = (tile_id > 0) ? static_cast<key_type>(maxbuf[tile_id - 1] + 1) : static_cast<key_type>(1);
+
+    int minindex = -1;
+    int maxindex = -1;
+
+
+
+    if (tile.thread_rank() == 0)
+    {
+
+        minindex = binarySearchIndex<key_type>(update_list, minkey, 0, update_size, false);
+        //maxindex = binarySearchIndex<key_type>(update_list,
+    }
+
+                minindex = tile.shfl(minindex, 0);
+                const bool skip_tile = (minindex >= update_size || minindex == -1);
+
+
+    // After shfl, all lanes observe the same values -> tile.any() adds overhead.
+   // const bool skip_tile = (minindex > maxindex || minindex == -1 || maxindex == -1);
+    if (skip_tile) return;
+
+    uint8_t* __restrict__ curr_node =
+        static_cast<uint8_t*>(launch_params->ordered_node_pairs) +
+        static_cast<size_t>(tile_id) * static_cast<size_t>(launch_params->node_stride);
+
+//#ifdef defined(INSERTS_TILE_BULK_ONLY)
+//#pragma message "TILE INSERTS_BULK_ONLY_OPTIMIZED_2=YES"
+
+//printf("Launching process_inserts_tile_bulk_only_optimized_2 for tile_id %d, minindex %d, maxindex %d, update_size %d\n",
+//    tile_id, minindex, maxindex, update_size);
+
+
+   process_inserts_tile_bulk_only_optimized_2<key_type>(
+      //process_INSERTS_TILE_BULK_ONLY_hybrid<key_type>(
+        maxkey,
+        (smallsize)minindex,
+        (smallsize)maxindex,
+        launch_params,
+        curr_node,
+        tile,
+        update_list,
+        offsets,
+        update_size);
+
+//#else
+//#pragma message "TILE INSERTS_BULK_=NO"
+//    process_inserts_tile<key_type>(maxkey, (smallsize)minindex, (smallsize)maxindex, launch_params, curr_node, tile);
+//#endif
+
+}
+
+
 template <typename key_type>
 GLOBALQUALIFIER void update_kernel_tile_inserts(
     updatable_cg_params* __restrict__ launch_params,
@@ -763,7 +842,7 @@ GLOBALQUALIFIER void update_kernel_tile(updatable_cg_params *launch_params, cons
         #elif defined(INSERTS_TILE_BULK_ONLY)
         #pragma message "TILE INSERTS_BULK_ONLY=YES"
         //printf("going into hybrid programs \n");
-            process_INSERTS_TILE_BULK_ONLY_hybrid<key_type>(maxkey, (smallsize)minindex, (smallsize)maxindex, launch_params, curr_node, tile, update_list, offsets, update_size);
+            process_INSERTS_TILE_BULK_ONLY<key_type>(maxkey, (smallsize)minindex, (smallsize)maxindex, launch_params, curr_node, tile, update_list, offsets, update_size);
        
         #else
          #pragma message "TILE INSERTS_BULK_=NO"

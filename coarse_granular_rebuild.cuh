@@ -61,6 +61,87 @@ GLOBALQUALIFIER void count_keys_per_bucket_kernel_unused(
 
 //size_t total_keys_in_DS = compute_total_size_kernel<key_type><<<SDIV(total_nodes, NUMTHREADS), NUMTHREADS, 0, stream>>>(launch_params_buffer.ptr());
        
+// function that also discludes a count for nodes that will be merged
+template <typename key_type>
+GLOBALQUALIFIER void count_nodes_per_bucket_nonzero_and_merged_nodes_kernel(
+    //// *************** INCOMPLETE KERNEL, not finished yet
+    const void *node_buffer,
+    const void *allocation_buffer,
+    smallsize node_size,
+    smallsize node_stride,
+    smallsize allocation_buffer_count,
+    smallsize partition_count_with_overflow,
+    smallsize *nodes_per_bucket)
+{
+    // Get thread ID
+    const auto tid = blockIdx.x * blockDim.x + threadIdx.x;
+
+    // Ensure the thread ID is within valid bounds
+    if (tid >= partition_count_with_overflow)
+        return;
+
+    // Start at the first node for this partition
+    const uint8_t *curr_node = reinterpret_cast<const uint8_t *>(node_buffer) + tid * node_stride;
+    
+    // Initialize count (do NOT count the first node immediately)
+    size_t count = 0;
+
+    // Get the last position offset
+    smallsize lastposition_bytes = get_lastposition_bytes<key_type>(node_size);
+    smallsize next_offset = cg::extract<smallsize>(curr_node, lastposition_bytes);
+    smallsize next_node_size = node_size; // Initialize to max possible size for safety
+    smallsize half_node_size = node_size / 2; // Threshold for merging nodes
+    bool prev_merge = false; // Flag to indicate if the previous node was merged with the next node
+
+    // Traverse linked nodes
+    while (true)
+    {
+        // Get the size of the current node
+        smallsize curr_size = cg::extract<smallsize>(curr_node, sizeof(key_type));
+
+        // Only count nodes with nonzero size
+        if (curr_size > 0)
+            count++;
+
+        if (curr_size == 0) {
+            //printf("Counting NON ZERO NODES tid %d : NODE SIZE IS ZERO\n", tid);
+            //print_node<key_type>(curr_node, node_size);
+            if(tid == partition_count_with_overflow - 1) {
+               // printf("Last Node Exception tid %d\n",tid);
+                count++;  
+            }
+        }
+        // Stop traversal if next_offset is 0 (end of linked list)
+        if (next_offset == 0)
+            break;
+
+        next_offset--; // Adjust for +1 offset in storage
+
+        // Safety check: Ensure the offset is within bounds
+        if (next_offset >= allocation_buffer_count)
+        {
+            printf("ERROR: NEXT OFFSET EXCEEDS ALLOCATION BUFFER COUNT\n");
+            break;
+        }
+
+        // Move to the next linked node
+        curr_node = reinterpret_cast<const uint8_t *>(allocation_buffer) + next_offset * node_stride;
+
+        // Extract the next offset for the next iteration
+        next_offset = cg::extract<smallsize>(curr_node, lastposition_bytes);
+        next_node_size = cg::extract<smallsize>(curr_node, sizeof(key_type));
+
+        if (curr_size + next_node_size <= half_node_size) {
+            count--;
+            prev_merge = true; // This node will be merged with the next node, so we should not count the next node.
+        }
+
+        //double check that the node we just added to the count is not a node that will be merged with the successor node.
+    }
+
+    // Store the final count in nodes_per_bucket
+    nodes_per_bucket[tid] = count;
+}
 
 template <typename key_type>
 GLOBALQUALIFIER void count_nodes_per_bucket_nonzero_nodes_kernel(

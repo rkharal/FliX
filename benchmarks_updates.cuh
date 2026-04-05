@@ -24,7 +24,8 @@
 // #include "../../input-generation/input_generation.h"  // Include the correct Zipf class
 
 // #define DEBUG_BENCHMARK_OUTPUT//
-// #define REBUILD_ON
+//#define REBUILD_GROUPS
+//#define REBUILD_ON
 // #define COMBINE_INSERT_DELETE
 // #define COMPUTE_TOTALKEYS
 
@@ -888,10 +889,10 @@ void draw_probes(
     std::vector<key_type> &probe_keys,
     std::vector<smallsize> &expected_result)
 {
-    std::cerr << "TOP Drawing: " << size
-            << " probes from active range ["
-           << active_range_start << ", "
-           << active_range_end << ")\n";
+   // std::cerr << "TOP Drawing: " << size
+   //         << " probes from active range ["
+   //        << active_range_start << ", "
+   //        << active_range_end << ")\n";
 
     std::mt19937_64 gen(42);
     std::uniform_int_distribution<size_t> index_dist(
@@ -1162,10 +1163,10 @@ void benchmark_updates(
 
         rti_assert(tc.probe_size_log >= tc.build_size_log);
 
-        // -------------- TEMPORARAY MANUAL OVERRIDE FOR TESTING
+        // -------------- TEMPORARAY MANUAL OVERRIDE FOR TESTING: BUILD_SIZE and PROBE_SIZE
         // --> Adjust
         size_t build_size = ( size_t{1} << tc.build_size_log ); //------->  + 333; // + 100;
-        //--100M size_t build_size = 99999999 + 6; //100000005;
+        //size_t build_size = 99999999 + 6; //100000005;
         std::cerr << " Build Size at top of File " << build_size << " free memory: " <<    free_memory_bytes << " total mem: " << total_memory_bytes << std::endl;
 
         // size_t build_size = (size_t{1} << tc.build_size_log); // + 100;
@@ -1178,6 +1179,8 @@ void benchmark_updates(
         // tc.build_size_log = static_cast<size_t>(std::log2(build_size));
        
         size_t key_generation_size = build_size * (100 + tc.total_inserts_percentage_of_build_size) / 100;
+        
+         // -------------- TEMPORARAY MANUAL OVERRIDE FOR TESTING
         //--> Adjust
          //size_t probe_size = ( size_t{1} << tc.probe_size_log); // ------>  + 111;
         // --- 100M size_t probe_size = 99999999 +2; 
@@ -1474,7 +1477,7 @@ void benchmark_updates(
                 {
 
                     // a Dummy round of Insertions:
-                    if (step == 0 && index.name == "cg_rtx_index_updates")
+                    if (step == 1 && index.name == "cg_rtx_index_updates")
                     {
                         std::cerr << "performing dummy inserts\n";
                         size_t dummy_insert_size = 10; // 2000;
@@ -1664,7 +1667,7 @@ void benchmark_updates(
                     if (did_delete_this_step && !last_deleted_keys.empty())
                     {
                         const smallsize del_probe_size = static_cast<smallsize>(last_deleted_keys.size());
-                        std::cerr << "    --TEST Post-Delete Miss-Probe for " << del_probe_size << " keys..." << std::endl;
+                        // std::cerr << "    --TEST Post-Delete Miss-Probe for " << del_probe_size << " keys..." << std::endl;
                         // Upload deleted keys as probes
                         probe_keys_buffer.upload(last_deleted_keys.data(), del_probe_size);
 
@@ -1739,10 +1742,10 @@ void benchmark_updates(
                             break;
                         }
 
-                        std::cerr << "    --Post-Delete Miss-Probe Time: -> "
-                                  << deleted_keys_probe_time_ms << " ms"
-                                  << " (keys=" << del_probe_size << ", sort=" << del_sort_time_ms << " ms)"
-                                  << std::endl;
+                        //std::cerr << "    --Post-Delete Miss-Probe Time: -> "
+                         //         << deleted_keys_probe_time_ms << " ms"
+                           //       << " (keys=" << del_probe_size << ", sort=" << del_sort_time_ms << " ms)"
+                            //      << std::endl;
                     }
                 } //---------------------- EXTRA PROBE FOR DELETED KEYS BLOCK END
                 // adjust active range
@@ -1769,12 +1772,14 @@ void benchmark_updates(
 
                 //***************************** REBUILD AFTER INSERTIONS OR DELETIONS */
 
+               // #define REBUILD_ON
 #ifdef REBUILD_ON
 #pragma message "REBUILD_ON=YES"
 
                 // rebuild
-                rebuild_time_ms = 0;
-                if (step % rebuild_frequency == 0)
+                rebuild_time_ms = 0; // REBUILD FOR DELETES ONLY
+                // ----if ( (step % rebuild_frequency == 0) && do_delete)
+                if ( (step % rebuild_frequency == 0) )
                 {
                     next_free = index.allocation_buffer_next_free();
                     timer.start();

@@ -36,7 +36,7 @@ struct tree_metadata {
     std::array<smallsize, max_level_count> nodes_on_level;
 }; */
 
-#define REBUILD_GROUPS
+
 
 #ifdef REBUILD_GROUPS
 #pragma message "Rebuild Groups include File=YES"
@@ -577,7 +577,7 @@ OptixTraversableHandle rebuild_structures(
 #pragma message "Rebuild Groups=YES"
     printf(" Rebuild Groups=YES \n");
     // Call rebuild data on the GPU kernel
-    smallsize new_node_count = rebuild_gpu_structures_group<key_type>(
+    smallsize new_node_count = rebuild_gpu_structures_tile<key_type>(
         ordered_node_pairs_buffer.ptr(),
         representative_temp_buffer.ptr(),
         allocation_buffer.ptr(),
@@ -867,7 +867,8 @@ void rebuild_structures_bucket_layer(
 #pragma message "Rebuild Groups=YES"
 
     // Call rebuild data on the GPU kernel
-    smallsize new_node_count = rebuild_gpu_structures_group<key_type>(
+    smallsize new_node_count = rebuild_gpu_structures_compact_one_tile<key_type>(
+    //smallsize new_node_count = rebuild_gpu_structures_tile<key_type>(
         ordered_node_pairs_buffer.ptr(),
         representative_temp_buffer.ptr(),
         allocation_buffer.ptr(),
@@ -2271,11 +2272,35 @@ public:
     void insert(const key_type *update_list, const smallsize *offsets, size_t size, cudaStream_t stream)
     {
 
+#ifdef PRINT_INSERT_VALUES
+        printf("\n ");
+        printf("****************************************************************\n");
+        printf("Insertions Latest File, Size of Insert List: %d \n", size);
+        printf("****************************************************************\n");
+        printf("\n ");
+        printf("Insert Function Print all new key-offset pairs in the update list\n");
+        assert(ordered_node_pairs_buffer.size_in_bytes() % node_stride == 0);
+
+        std::vector<key_type> keys_host(size);
+        std::vector<smallsize> offsets_host(size);
+
+        cudaMemcpy(keys_host.data(), update_list, size * sizeof(key_type), cudaMemcpyDeviceToHost);
+        CUERR
+        cudaMemcpy(offsets_host.data(), offsets, size * sizeof(smallsize), cudaMemcpyDeviceToHost);
+        CUERR
+
+        for (int i = 0; i < size; ++i)
+        {
+            key_type key = keys_host[i];
+            printf("Key %d: %llu, Offset: %u\n", i, static_cast<unsigned long long>(key), static_cast<unsigned>(offsets_host[i]));
+        }
+#endif
+
 #ifdef TILE_INSERTS
-#pragma message "TILE INSERTS_NEW=YES"
+#pragma message "TILE INSERTS_UPDATED=YES"
 
 #ifdef TILE_INSERTS_C
-#pragma message "TILE INSERTS_C_NEW=YES"
+#pragma message "TILE INSERTS_C_UPDATED=YES"
         // NUMTHREADS = MAXBLOCKSIZE;
         //  total_nodes = 1000000;
 
@@ -2285,7 +2310,9 @@ public:
 
         smallsize maxblocks_required = SDIV(blocksPerGrid, MAXBLOCKSIZE /DIV_FACTOR);
 
-        update_kernel_tile_inserts<key_type><<<maxblocks_required, MAXBLOCKSIZE /DIV_FACTOR, 0, stream>>>(launch_params_buffer.ptr(), update_list, offsets, size);
+
+        update_kernel_tile_inserts_new<key_type><<<maxblocks_required, MAXBLOCKSIZE /DIV_FACTOR, 0, stream>>>(launch_params_buffer.ptr(), update_list, offsets, size);
+        //update_kernel_tile_inserts<key_type><<<maxblocks_required, MAXBLOCKSIZE /DIV_FACTOR, 0, stream>>>(launch_params_buffer.ptr(), update_list, offsets, size);
 
 #endif
 
@@ -2299,279 +2326,7 @@ public:
 #endif
     }
 
-    void insert_previous1(const key_type *update_list, const smallsize *offsets, size_t size, cudaStream_t stream)
-    {
-
-        smallsize *result = nullptr;
-
-#ifdef PRINT_INSERT_VALUES
-        printf("\n ");
-        printf("****************************************************************\n");
-        printf("Insertions, Size of Insert List: %d \n", size);
-        printf("****************************************************************\n");
-        printf("\n ");
-        printf("Insert Function Print all new key-offset pairs in the update list\n");
-        assert(ordered_node_pairs_buffer.size_in_bytes() % node_stride == 0);
-
-        std::vector<key_type> keys_host(size);
-        std::vector<smallsize> offsets_host(size);
-
-        cudaMemcpy(keys_host.data(), update_list, size * sizeof(key_type), cudaMemcpyDeviceToHost);
-        CUERR
-        cudaMemcpy(offsets_host.data(), offsets, size * sizeof(smallsize), cudaMemcpyDeviceToHost);
-        CUERR
-
-        for (int i = 0; i < size; ++i)
-        {
-            key_type key = keys_host[i];
-            printf("Key %d: %llu, Offset: %u\n", i, static_cast<unsigned long long>(key), static_cast<unsigned>(offsets_host[i]));
-        }
-#endif
-        // DEBUG_UPDATES("Insert Function ", 2, partition_count, partition_count_with_overflow);
-
-        /*  {
-              nvtx3::scoped_range_in<nvtx_rtx_domain> upload{"upload-params"};
-              setup_update_data<<<1, 1, 0, stream>>>(
-                  launch_params_buffer.ptr(),
-                  sizeof(key_type) == 8,
-                  false,
-                  update_list,
-                  offsets,
-                  size,
-                  result);
-          } */
-
-        {
-
-            // DEBUG_UPDATES("Insert:Calling Update Kernel", 2, partition_count_with_overflow, size);
-
-#ifdef PRINT_INSERT_VALUES
-            cudaFuncAttributes attr;
-            cudaError_t err = cudaFuncGetAttributes(&attr, update_kernel<key_type>);
-
-            if (err != cudaSuccess)
-            {
-                printf(" Insert: cudaFuncGetAttributes failed with error: %s\n", cudaGetErrorString(err));
-            }
-            else
-            {
-                printf("Shared memory per block: %zu\n", attr.sharedSizeBytes);
-                printf("Registers per block: %d\n", attr.numRegs);
-            }
-
-            DEBUG_UPDATES("Inserts Call to Update kernel", 3, total_nodes, MAXBLOCKSIZE, NUMTHREADS);
-
-#endif
-
-#ifdef TILE_INSERTS
-#pragma message "TILE INSERTS=YES"
-
-#ifdef TILE_INSERTS_A
-#pragma message "TILE INSERTS_A_=YES"
-            smallsize total_nodes = partition_count_with_overflow; // taking into account overflow node
-            smallsize NUMTHREADS = (total_nodes > MAXBLOCKSIZE) ? MAXBLOCKSIZE : total_nodes;
-            const int total_tiles = partition_count_with_overflow * TILE_SIZE;
-            const int tiles_per_block = 8; //
-            const int threads_per_block = TILE_SIZE * tiles_per_block;
-            const int num_blocks = (total_tiles + tiles_per_block - 1) / tiles_per_block;
-
-            // printf("Tile Insert: num_blocks %d, threads_per_block %d\n", num_blocks, threads_per_block);
-
-            update_kernel_tile<key_type><<<num_blocks, threads_per_block, 0, stream>>>(launch_params_buffer.ptr(), false);
-            // update_kernel_tile<key_type><<<SDIV(total_nodes, NUMTHREADS), NUMTHREADS, 0, stream>>>(launch_params_buffer.ptr(), false);
-#elif defined(TILE_INSERTS_B)
-#pragma message "TILE INSERTS_B_=YES"
-            smallsize total_nodes = partition_count_with_overflow; // taking into account overflow node
-            smallsize NUMTHREADS = (total_nodes > MAXBLOCKSIZE) ? MAXBLOCKSIZE : total_nodes;
-            total_nodes = partition_count_with_overflow * TILE_SIZE; // taking into account overflow node
-            NUMTHREADS = (total_nodes > MAXBLOCKSIZE) ? MAXBLOCKSIZE : total_nodes;
-            update_kernel_tile<key_type><<<SDIV(total_nodes, NUMTHREADS), NUMTHREADS, 0, stream>>>(launch_params_buffer.ptr(), false);
-
-#elif defined(TILE_INSERTS_C)
-#pragma message "TILE INSERTS_C_=YES"
-            // NUMTHREADS = MAXBLOCKSIZE;
-            //  total_nodes = 1000000;
-
-            smallsize threadsPerBlock = TILE_SIZE;                               // e.g., 8 or 16
-            smallsize blocksPerGrid = partition_count_with_overflow * TILE_SIZE; // NOT divided by anything
-            // smallsize maxblocksplus1 = SDIV(blocksPerGrid, MAXBLOCKSIZE /DIV_FACTOR) + 1;
-
-            smallsize maxblocks_required = SDIV(blocksPerGrid, MAXBLOCKSIZE /DIV_FACTOR);
-
-            update_kernel_tile_inserts<key_type><<<maxblocks_required, MAXBLOCKSIZE /DIV_FACTOR, 0, stream>>>(launch_params_buffer.ptr(), update_list, offsets, size);
-
-#else
-#pragma message "WARP_INSERTS_D_=YES"
-            const int threadsPerBlock = MAXBLOCKSIZE;              // e.g., 256
-            const int warpsPerBlock = threadsPerBlock / WARP_SIZE; // e.g., 8
-            const int blocksPerGrid = SDIV(partition_count_with_overflow, warpsPerBlock);
-
-            update_kernel_warp<key_type><<<blocksPerGrid, threadsPerBlock, 0, stream>>>(
-                launch_params_buffer.ptr(), false);
-
-#endif
-
-#else
-#pragma message "TILE INSERTS=NO"
-
-            // smallsize total_nodes = partition_count_with_overflow; // taking into account overflow node
-            smallsize total_nodes = partition_count_with_overflow; // taking into account overflow node
-            smallsize NUMTHREADS = (total_nodes > MAXBLOCKSIZE) ? MAXBLOCKSIZE : total_nodes;
-            update_kernel<key_type><<<SDIV(total_nodes, NUMTHREADS /DIV_FACTOR), NUMTHREADS /DIV_FACTOR, 0, stream>>>(launch_params_buffer.ptr(), false);
-#endif
-
-#ifdef PRINT_INSERT_VALUES
-            cudaStreamSynchronize(0);
-            CUERR
-            updatable_cg_params params = launch_params_buffer.download_first_item();
-            // Download and print the free_node value
-            std::cout << "Done Insertions free_node: " << params.free_node << std::endl;
-
-            total_nodes_used_from_AR = params.free_node;
-#endif
-        }
-    }
-
-    void insert_previous2(const key_type *update_list, const smallsize *offsets, size_t size, cudaStream_t stream)
-    {
-
-        smallsize *result = nullptr;
-
-#ifdef PRINT_INSERT_VALUES
-        printf("\n ");
-        printf("****************************************************************\n");
-        printf("Insertions, Size of Insert List: %d \n", size);
-        printf("****************************************************************\n");
-        printf("\n ");
-        printf("Insert Function Print all new key-offset pairs in the update list\n");
-        assert(ordered_node_pairs_buffer.size_in_bytes() % node_stride == 0);
-
-        std::vector<key_type> keys_host(size);
-        std::vector<smallsize> offsets_host(size);
-
-        cudaMemcpy(keys_host.data(), update_list, size * sizeof(key_type), cudaMemcpyDeviceToHost);
-        CUERR
-        cudaMemcpy(offsets_host.data(), offsets, size * sizeof(smallsize), cudaMemcpyDeviceToHost);
-        CUERR
-
-        for (int i = 0; i < size; ++i)
-        {
-            key_type key = keys_host[i];
-            printf("Key %d: %llu, Offset: %u\n", i, static_cast<unsigned long long>(key), static_cast<unsigned>(offsets_host[i]));
-        }
-#endif
-        DEBUG_UPDATES("Insert Function ", 2, partition_count, partition_count_with_overflow);
-
-        {
-            nvtx3::scoped_range_in<nvtx_rtx_domain> upload{"upload-params"};
-            setup_update_data<<<1, 1, 0, stream>>>(
-                launch_params_buffer.ptr(),
-                sizeof(key_type) == 8,
-                false,
-                update_list,
-                offsets,
-                size,
-                result);
-        }
-
-        {
-
-            smallsize total_nodes = partition_count_with_overflow; // taking into account overflow node
-            smallsize NUMTHREADS = (total_nodes > MAXBLOCKSIZE) ? MAXBLOCKSIZE : total_nodes;
-            DEBUG_UPDATES("Insert:Calling Update Kernel", 2, partition_count_with_overflow, size);
-
-#ifdef PRINT_INSERT_VALUES
-            cudaFuncAttributes attr;
-            cudaError_t err = cudaFuncGetAttributes(&attr, update_kernel<key_type>);
-
-            if (err != cudaSuccess)
-            {
-                printf(" Insert: cudaFuncGetAttributes failed with error: %s\n", cudaGetErrorString(err));
-            }
-            else
-            {
-                printf("Shared memory per block: %zu\n", attr.sharedSizeBytes);
-                printf("Registers per block: %d\n", attr.numRegs);
-            }
-
-            DEBUG_UPDATES("Inserts Call to Update kernel", 3, total_nodes, MAXBLOCKSIZE, NUMTHREADS);
-
-#endif
-
-#ifdef TILE_INSERTS
-#pragma message "TILE INSERTS=YES"
-
-#ifdef TILE_INSERTS_A
-#pragma message "TILE INSERTS_A_=YES"
-
-            const int total_tiles = partition_count_with_overflow * TILE_SIZE;
-            const int tiles_per_block = 8; //
-            const int threads_per_block = TILE_SIZE * tiles_per_block;
-            const int num_blocks = (total_tiles + tiles_per_block - 1) / tiles_per_block;
-
-            // printf("Tile Insert: num_blocks %d, threads_per_block %d\n", num_blocks, threads_per_block);
-
-            update_kernel_tile<key_type><<<num_blocks, threads_per_block, 0, stream>>>(launch_params_buffer.ptr(), false);
-            // update_kernel_tile<key_type><<<SDIV(total_nodes, NUMTHREADS), NUMTHREADS, 0, stream>>>(launch_params_buffer.ptr(), false);
-#elif defined(TILE_INSERTS_B)
-#pragma message "TILE INSERTS_B_=YES"
-
-            total_nodes = partition_count_with_overflow * TILE_SIZE; // taking into account overflow node
-            NUMTHREADS = (total_nodes > MAXBLOCKSIZE) ? MAXBLOCKSIZE : total_nodes;
-            update_kernel_tile<key_type><<<SDIV(total_nodes, NUMTHREADS), NUMTHREADS, 0, stream>>>(launch_params_buffer.ptr(), false);
-
-#elif defined(TILE_INSERTS_C)
-#pragma message "TILE INSERTS_C_=YES"
-            NUMTHREADS = MAXBLOCKSIZE;
-            //  total_nodes = 1000000;
-
-            smallsize threadsPerBlock = TILE_SIZE;                               // e.g., 8 or 16
-            smallsize blocksPerGrid = partition_count_with_overflow * TILE_SIZE; // NOT divided by anything
-            // smallsize maxblocksplus1 = SDIV(blocksPerGrid, MAXBLOCKSIZE /DIV_FACTOR) + 1;
-
-            smallsize maxblocks_required = SDIV(blocksPerGrid, MAXBLOCKSIZE /DIV_FACTOR);
-
-            update_kernel_tile<key_type><<<maxblocks_required, MAXBLOCKSIZE /DIV_FACTOR, 0, stream>>>(launch_params_buffer.ptr(), false);
-
-            // update_kernel_tile<key_type><<<blocksPerGrid, threadsPerBlock, 0, stream>>>(launch_params_buffer.ptr(), false);
-
-            //   #elif defined(TILE_INSERTS_BULK)
-            //   #pragma message "TILE INSERTS_BULK_=YES"
-            //   // Bulk inserts with tile size
-            //   smallsize threadsPerBlock = TILE_SIZE;  // e.g., 8 or 16
-            //   smallsize blocksPerGrid = partition_count_with_overflow*TILE_SIZE;  // NOT divided by anything
-            //   smallsize maxblocksplus1 = SDIV(blocksPerGrid, MAXBLOCKSIZE/DIV) + 1;
-            //   update_kernel_tile_bulk<key_type><<<maxblocksplus1, MAXBLOCKSIZE/DIV, 0, stream>>>(launch_params_buffer.ptr(), false);
-            //    update_kernel_tile<key_type><<<blocksPerGrid, threadsPerBlock, 0, stream>>>(launch_params_buffer.ptr(), false);
-
-#else
-#pragma message "WARP_INSERTS_D_=YES"
-            const int threadsPerBlock = MAXBLOCKSIZE;              // e.g., 256
-            const int warpsPerBlock = threadsPerBlock / WARP_SIZE; // e.g., 8
-            const int blocksPerGrid = SDIV(partition_count_with_overflow, warpsPerBlock);
-
-            update_kernel_warp<key_type><<<blocksPerGrid, threadsPerBlock, 0, stream>>>(
-                launch_params_buffer.ptr(), false);
-
-#endif
-
-#else
-#pragma message "TILE INSERTS=NO"
-            update_kernel<key_type><<<SDIV(total_nodes, NUMTHREADS /DIV_FACTOR), NUMTHREADS /DIV_FACTOR, 0, stream>>>(launch_params_buffer.ptr(), false);
-#endif
-
-#ifdef PRINT_INSERT_VALUES
-            cudaStreamSynchronize(0);
-            CUERR
-            updatable_cg_params params = launch_params_buffer.download_first_item();
-            // Download and print the free_node value
-            std::cout << "Done Insertions free_node: " << params.free_node << std::endl;
-
-            total_nodes_used_from_AR = params.free_node;
-#endif
-        }
-    }
-
+   
     void remove(const key_type *update_list, size_t size, cudaStream_t stream)
     {
 
@@ -3015,3 +2770,282 @@ public:
 };
 
 #endif
+
+
+
+/* /iffalse 
+ void insert_previous1(const key_type *update_list, const smallsize *offsets, size_t size, cudaStream_t stream)
+    {
+
+        smallsize *result = nullptr;
+
+#ifdef PRINT_INSERT_VALUES
+        printf("\n ");
+        printf("****************************************************************\n");
+        printf("Insertions, Size of Insert List: %d \n", size);
+        printf("****************************************************************\n");
+        printf("\n ");
+        printf("Insert Function Print all new key-offset pairs in the update list\n");
+        assert(ordered_node_pairs_buffer.size_in_bytes() % node_stride == 0);
+
+        std::vector<key_type> keys_host(size);
+        std::vector<smallsize> offsets_host(size);
+
+        cudaMemcpy(keys_host.data(), update_list, size * sizeof(key_type), cudaMemcpyDeviceToHost);
+        CUERR
+        cudaMemcpy(offsets_host.data(), offsets, size * sizeof(smallsize), cudaMemcpyDeviceToHost);
+        CUERR
+
+        for (int i = 0; i < size; ++i)
+        {
+            key_type key = keys_host[i];
+            printf("Key %d: %llu, Offset: %u\n", i, static_cast<unsigned long long>(key), static_cast<unsigned>(offsets_host[i]));
+        }
+#endif
+        // DEBUG_UPDATES("Insert Function ", 2, partition_count, partition_count_with_overflow);
+
+          {
+              nvtx3::scoped_range_in<nvtx_rtx_domain> upload{"upload-params"};
+              setup_update_data<<<1, 1, 0, stream>>>(
+                  launch_params_buffer.ptr(),
+                  sizeof(key_type) == 8,
+                  false,
+                  update_list,
+                  offsets,
+                  size,
+                  result);
+          } 
+
+        {
+
+            // DEBUG_UPDATES("Insert:Calling Update Kernel", 2, partition_count_with_overflow, size);
+
+#ifdef PRINT_INSERT_VALUES
+            cudaFuncAttributes attr;
+            cudaError_t err = cudaFuncGetAttributes(&attr, update_kernel<key_type>);
+
+            if (err != cudaSuccess)
+            {
+                printf(" Insert: cudaFuncGetAttributes failed with error: %s\n", cudaGetErrorString(err));
+            }
+            else
+            {
+                printf("Shared memory per block: %zu\n", attr.sharedSizeBytes);
+                printf("Registers per block: %d\n", attr.numRegs);
+            }
+
+            DEBUG_UPDATES("Inserts Call to Update kernel", 3, total_nodes, MAXBLOCKSIZE, NUMTHREADS);
+
+#endif
+
+#ifdef TILE_INSERTS
+#pragma message "TILE INSERTS=YES"
+
+#ifdef TILE_INSERTS_A
+#pragma message "TILE INSERTS_A_=YES"
+            smallsize total_nodes = partition_count_with_overflow; // taking into account overflow node
+            smallsize NUMTHREADS = (total_nodes > MAXBLOCKSIZE) ? MAXBLOCKSIZE : total_nodes;
+            const int total_tiles = partition_count_with_overflow * TILE_SIZE;
+            const int tiles_per_block = 8; //
+            const int threads_per_block = TILE_SIZE * tiles_per_block;
+            const int num_blocks = (total_tiles + tiles_per_block - 1) / tiles_per_block;
+
+            // printf("Tile Insert: num_blocks %d, threads_per_block %d\n", num_blocks, threads_per_block);
+
+            update_kernel_tile<key_type><<<num_blocks, threads_per_block, 0, stream>>>(launch_params_buffer.ptr(), false);
+            // update_kernel_tile<key_type><<<SDIV(total_nodes, NUMTHREADS), NUMTHREADS, 0, stream>>>(launch_params_buffer.ptr(), false);
+#elif defined(TILE_INSERTS_B)
+#pragma message "TILE INSERTS_B_=YES"
+            smallsize total_nodes = partition_count_with_overflow; // taking into account overflow node
+            smallsize NUMTHREADS = (total_nodes > MAXBLOCKSIZE) ? MAXBLOCKSIZE : total_nodes;
+            total_nodes = partition_count_with_overflow * TILE_SIZE; // taking into account overflow node
+            NUMTHREADS = (total_nodes > MAXBLOCKSIZE) ? MAXBLOCKSIZE : total_nodes;
+            update_kernel_tile<key_type><<<SDIV(total_nodes, NUMTHREADS), NUMTHREADS, 0, stream>>>(launch_params_buffer.ptr(), false);
+
+#elif defined(TILE_INSERTS_C)
+#pragma message "TILE INSERTS_C_=YES"
+            // NUMTHREADS = MAXBLOCKSIZE;
+            //  total_nodes = 1000000;
+
+            smallsize threadsPerBlock = TILE_SIZE;                               // e.g., 8 or 16
+            smallsize blocksPerGrid = partition_count_with_overflow * TILE_SIZE; // NOT divided by anything
+            // smallsize maxblocksplus1 = SDIV(blocksPerGrid, MAXBLOCKSIZE /DIV_FACTOR) + 1;
+
+            smallsize maxblocks_required = SDIV(blocksPerGrid, MAXBLOCKSIZE /DIV_FACTOR);
+
+            update_kernel_tile_inserts<key_type><<<maxblocks_required, MAXBLOCKSIZE /DIV_FACTOR, 0, stream>>>(launch_params_buffer.ptr(), update_list, offsets, size);
+
+#else
+#pragma message "WARP_INSERTS_D_=YES"
+            const int threadsPerBlock = MAXBLOCKSIZE;              // e.g., 256
+            const int warpsPerBlock = threadsPerBlock / WARP_SIZE; // e.g., 8
+            const int blocksPerGrid = SDIV(partition_count_with_overflow, warpsPerBlock);
+
+            update_kernel_warp<key_type><<<blocksPerGrid, threadsPerBlock, 0, stream>>>(
+                launch_params_buffer.ptr(), false);
+
+#endif
+
+#else
+#pragma message "TILE INSERTS=NO"
+
+            // smallsize total_nodes = partition_count_with_overflow; // taking into account overflow node
+            smallsize total_nodes = partition_count_with_overflow; // taking into account overflow node
+            smallsize NUMTHREADS = (total_nodes > MAXBLOCKSIZE) ? MAXBLOCKSIZE : total_nodes;
+            update_kernel<key_type><<<SDIV(total_nodes, NUMTHREADS /DIV_FACTOR), NUMTHREADS /DIV_FACTOR, 0, stream>>>(launch_params_buffer.ptr(), false);
+#endif
+
+#ifdef PRINT_INSERT_VALUES
+            cudaStreamSynchronize(0);
+            CUERR
+            updatable_cg_params params = launch_params_buffer.download_first_item();
+            // Download and print the free_node value
+            std::cout << "Done Insertions free_node: " << params.free_node << std::endl;
+
+            total_nodes_used_from_AR = params.free_node;
+#endif
+        }
+    }
+
+    void insert_previous2(const key_type *update_list, const smallsize *offsets, size_t size, cudaStream_t stream)
+    {
+
+        smallsize *result = nullptr;
+
+#ifdef PRINT_INSERT_VALUES
+        printf("\n ");
+        printf("****************************************************************\n");
+        printf("Insertions, Size of Insert List: %d \n", size);
+        printf("****************************************************************\n");
+        printf("\n ");
+        printf("Insert Function Print all new key-offset pairs in the update list\n");
+        assert(ordered_node_pairs_buffer.size_in_bytes() % node_stride == 0);
+
+        std::vector<key_type> keys_host(size);
+        std::vector<smallsize> offsets_host(size);
+
+        cudaMemcpy(keys_host.data(), update_list, size * sizeof(key_type), cudaMemcpyDeviceToHost);
+        CUERR
+        cudaMemcpy(offsets_host.data(), offsets, size * sizeof(smallsize), cudaMemcpyDeviceToHost);
+        CUERR
+
+        for (int i = 0; i < size; ++i)
+        {
+            key_type key = keys_host[i];
+            printf("Key %d: %llu, Offset: %u\n", i, static_cast<unsigned long long>(key), static_cast<unsigned>(offsets_host[i]));
+        }
+#endif
+        DEBUG_UPDATES("Insert Function ", 2, partition_count, partition_count_with_overflow);
+
+        {
+            nvtx3::scoped_range_in<nvtx_rtx_domain> upload{"upload-params"};
+            setup_update_data<<<1, 1, 0, stream>>>(
+                launch_params_buffer.ptr(),
+                sizeof(key_type) == 8,
+                false,
+                update_list,
+                offsets,
+                size,
+                result);
+        }
+
+        {
+
+            smallsize total_nodes = partition_count_with_overflow; // taking into account overflow node
+            smallsize NUMTHREADS = (total_nodes > MAXBLOCKSIZE) ? MAXBLOCKSIZE : total_nodes;
+            DEBUG_UPDATES("Insert:Calling Update Kernel", 2, partition_count_with_overflow, size);
+
+#ifdef PRINT_INSERT_VALUES
+            cudaFuncAttributes attr;
+            cudaError_t err = cudaFuncGetAttributes(&attr, update_kernel<key_type>);
+
+            if (err != cudaSuccess)
+            {
+                printf(" Insert: cudaFuncGetAttributes failed with error: %s\n", cudaGetErrorString(err));
+            }
+            else
+            {
+                printf("Shared memory per block: %zu\n", attr.sharedSizeBytes);
+                printf("Registers per block: %d\n", attr.numRegs);
+            }
+
+            DEBUG_UPDATES("Inserts Call to Update kernel", 3, total_nodes, MAXBLOCKSIZE, NUMTHREADS);
+
+#endif
+
+#ifdef TILE_INSERTS
+#pragma message "TILE INSERTS=YES"
+
+#ifdef TILE_INSERTS_A
+#pragma message "TILE INSERTS_A_=YES"
+
+            const int total_tiles = partition_count_with_overflow * TILE_SIZE;
+            const int tiles_per_block = 8; //
+            const int threads_per_block = TILE_SIZE * tiles_per_block;
+            const int num_blocks = (total_tiles + tiles_per_block - 1) / tiles_per_block;
+
+            // printf("Tile Insert: num_blocks %d, threads_per_block %d\n", num_blocks, threads_per_block);
+
+            update_kernel_tile<key_type><<<num_blocks, threads_per_block, 0, stream>>>(launch_params_buffer.ptr(), false);
+            // update_kernel_tile<key_type><<<SDIV(total_nodes, NUMTHREADS), NUMTHREADS, 0, stream>>>(launch_params_buffer.ptr(), false);
+#elif defined(TILE_INSERTS_B)
+#pragma message "TILE INSERTS_B_=YES"
+
+            total_nodes = partition_count_with_overflow * TILE_SIZE; // taking into account overflow node
+            NUMTHREADS = (total_nodes > MAXBLOCKSIZE) ? MAXBLOCKSIZE : total_nodes;
+            update_kernel_tile<key_type><<<SDIV(total_nodes, NUMTHREADS), NUMTHREADS, 0, stream>>>(launch_params_buffer.ptr(), false);
+
+#elif defined(TILE_INSERTS_C)
+#pragma message "TILE INSERTS_C_=YES"
+            NUMTHREADS = MAXBLOCKSIZE;
+            //  total_nodes = 1000000;
+
+            smallsize threadsPerBlock = TILE_SIZE;                               // e.g., 8 or 16
+            smallsize blocksPerGrid = partition_count_with_overflow * TILE_SIZE; // NOT divided by anything
+            // smallsize maxblocksplus1 = SDIV(blocksPerGrid, MAXBLOCKSIZE /DIV_FACTOR) + 1;
+
+            smallsize maxblocks_required = SDIV(blocksPerGrid, MAXBLOCKSIZE /DIV_FACTOR);
+
+            update_kernel_tile<key_type><<<maxblocks_required, MAXBLOCKSIZE /DIV_FACTOR, 0, stream>>>(launch_params_buffer.ptr(), false);
+
+            // update_kernel_tile<key_type><<<blocksPerGrid, threadsPerBlock, 0, stream>>>(launch_params_buffer.ptr(), false);
+
+            //   #elif defined(TILE_INSERTS_BULK)
+            //   #pragma message "TILE INSERTS_BULK_=YES"
+            //   // Bulk inserts with tile size
+            //   smallsize threadsPerBlock = TILE_SIZE;  // e.g., 8 or 16
+            //   smallsize blocksPerGrid = partition_count_with_overflow*TILE_SIZE;  // NOT divided by anything
+            //   smallsize maxblocksplus1 = SDIV(blocksPerGrid, MAXBLOCKSIZE/DIV) + 1;
+            //   update_kernel_tile_bulk<key_type><<<maxblocksplus1, MAXBLOCKSIZE/DIV, 0, stream>>>(launch_params_buffer.ptr(), false);
+            //    update_kernel_tile<key_type><<<blocksPerGrid, threadsPerBlock, 0, stream>>>(launch_params_buffer.ptr(), false);
+
+#else
+#pragma message "WARP_INSERTS_D_=YES"
+            const int threadsPerBlock = MAXBLOCKSIZE;              // e.g., 256
+            const int warpsPerBlock = threadsPerBlock / WARP_SIZE; // e.g., 8
+            const int blocksPerGrid = SDIV(partition_count_with_overflow, warpsPerBlock);
+
+            update_kernel_warp<key_type><<<blocksPerGrid, threadsPerBlock, 0, stream>>>(
+                launch_params_buffer.ptr(), false);
+
+#endif
+
+#else
+#pragma message "TILE INSERTS=NO"
+            update_kernel<key_type><<<SDIV(total_nodes, NUMTHREADS /DIV_FACTOR), NUMTHREADS /DIV_FACTOR, 0, stream>>>(launch_params_buffer.ptr(), false);
+#endif
+
+#ifdef PRINT_INSERT_VALUES
+            cudaStreamSynchronize(0);
+            CUERR
+            updatable_cg_params params = launch_params_buffer.download_first_item();
+            // Download and print the free_node value
+            std::cout << "Done Insertions free_node: " << params.free_node << std::endl;
+
+            total_nodes_used_from_AR = params.free_node;
+#endif
+        }
+    }
+
+
+    */

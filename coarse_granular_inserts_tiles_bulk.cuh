@@ -502,7 +502,7 @@ DEVICEQUALIFIER void process_inserts_tile_bulk_hybrid(
 }
 
 template <typename key_type>
-DEVICEQUALIFIER void process_INSERTS_TILE_BULK_ONLY_hybrid(
+DEVICEQUALIFIER void process_INSERTS_TILE_BULK_ONLY(
     key_type maxkey, smallsize minindex, smallsize maxindex,
     updatable_cg_params *launch_params,
     void *starting_node,
@@ -1294,6 +1294,304 @@ DEVICEQUALIFIER void process_inserts_tile_bulk_only(
 #endif
 }
 
+
+template <typename key_type>
+DEVICEQUALIFIER void process_inserts_tile_bulk_only_optimized_2(
+    key_type bucket_max,
+    smallsize minindex,
+    smallsize maxindex_old,
+    updatable_cg_params *__restrict__ launch_params,
+    void *starting_node,
+    coop_g::thread_block_tile<TILE_SIZE> tile,
+    const key_type *__restrict__ update_list,
+    const smallsize *__restrict__ offset_list,
+    smallsize update_size)
+{
+    //(void)bucket_max;
+    ///(void)update_size;
+
+    const smallsize maxindex = update_size - 1;  // now use this everywhere in the function
+
+    uint8_t *__restrict__ allocation_buffer =
+        static_cast<uint8_t *>(launch_params->allocation_buffer);
+
+    const smallsize allocation_buffer_count = launch_params->allocation_buffer_count;
+    const smallsize node_stride = launch_params->node_stride;
+    const smallsize node_size = launch_params->node_size;
+    const smallsize lastposition_bytes = get_lastposition_bytes<key_type>(node_size);
+
+    const smallsize my_tid = tile.thread_rank();
+    const smallsize tile_id = blockIdx.x * (blockDim.x / tile.size()) + tile.meta_group_rank();
+
+    const smallsize total_keys = maxindex - minindex + 1;
+
+    void *curr_node = starting_node;
+    smallsize update_idx = minindex;
+    key_type curr_max = cg::extract<key_type>(curr_node, 0);
+
+    smallsize total_insert_count_across_all_nodes = 0;
+
+    //**** PERFORM BULK INSERTIONS ONLY -- NO HYBRID LOGIC ****/
+
+    // here print out all keys in the update_list begining at mindex
+#ifdef PRINT_INSERT_VALUES
+    if (my_tid == 0 )
+    {
+        printf("In Bulk Insert Function Update List Keys: bucket_max = %llu\n", static_cast<unsigned long long>(bucket_max) );
+        for (smallsize i = minindex; i <= maxindex; ++i)
+        {
+            printf("Key: %llu, Offset: %u\n", static_cast<unsigned long long>(update_list[i]), static_cast<unsigned>(offset_list[i]));
+        }
+    }
+#endif
+
+    while (update_idx <= maxindex && update_list[update_idx] <= bucket_max)
+    {
+        key_type key = update_list[update_idx];
+        smallsize offset = offset_list[update_idx];
+
+        if ( (curr_max < key) && (my_tid == 0) )
+        {
+            while (curr_max < key)
+            {
+                const smallsize next_ptr = cg::extract<smallsize>(curr_node, lastposition_bytes);
+                // if (next_ptr == 0 || (next_ptr - 1) >= allocation_buffer_count)
+
+                if (next_ptr == 0) // || (next_ptr - 1) >= allocation_buffer_count)
+
+                {
+                    ERROR_INSERTS("Invalid link in chain", key, tile_id, my_tid);
+                }
+                curr_node = allocation_buffer + static_cast<size_t>(next_ptr - 1) * static_cast<size_t>(node_stride);
+                curr_max = cg::extract<key_type>(curr_node, 0);
+            }
+        }
+
+        curr_max = tile.shfl(curr_max, 0);
+        uintptr_t raw_ptr = reinterpret_cast<uintptr_t>(curr_node);
+        raw_ptr = tile.shfl(raw_ptr, 0);
+        curr_node = reinterpret_cast<void *>(raw_ptr);
+
+        smallsize curr_size = cg::extract<smallsize>(curr_node, sizeof(key_type));
+
+        //if (tile_id == 0 && my_tid == 0)
+          //  DEBUG_PI_TILE_BULK("Current Node Size", curr_size, node_size, my_tid);
+
+        if (curr_size >= node_size)
+        {
+            process_split_tile<key_type>(tile, curr_node, launch_params);
+            curr_max = cg::extract<key_type>(curr_node, 0);
+            continue;
+        }
+
+        smallsize insert_index = 1;
+        smallsize insert_count = 0;
+        key_type testkey = 0;
+        smallsize testoffset = 0;
+        key_type my_key = 0;
+        smallsize my_offset = 0;
+        bool active = false;
+        bool found = false;
+        bool max_testkey = false;
+        smallsize tid_test_key = node_size + 1;
+        smallsize tid_old_test_key = 0;
+
+        const smallsize free_space = node_size - curr_size;
+
+        // ---------------- BULK INSERTION LOGIC ----------------
+        if (my_tid < curr_size)
+        {
+            my_key = extract_key_node<key_type>(curr_node, my_tid + 1);
+            my_offset = extract_offset_node<key_type>(curr_node, my_tid + 1);
+
+           // if (my_key != 0 && my_key != static_cast<key_type>(tombstone))
+            if (my_key != 0 )
+            {
+                active = true;
+                found = (my_key == key);
+            }
+        }
+
+        bool key_found = tile.any(found);
+
+        if (key_found)
+        {
+            update_idx++;
+            continue;
+        }
+
+      // -- dont think we need this  tile.sync();
+
+        bool insert_curr_node = true;
+        key_found = false;
+        smallsize added_keys = 0;
+
+        while (insert_curr_node)
+        {
+            max_testkey = false;
+            added_keys = 0;
+
+            const bool is_gt = active && (my_key > key);
+            const unsigned mask = tile.ballot(is_gt);
+
+            if (mask != 0)
+            {
+                insert_index = __ffs(mask);
+                testkey = tile.shfl(my_key, insert_index - 1);
+                testoffset = tile.shfl(my_offset, insert_index - 1);
+                tid_test_key = insert_index - 1;
+            }
+            else
+            {
+                insert_index = curr_size + 1;
+                max_testkey = true;
+                testkey = curr_max;
+                tid_test_key = node_size + 1;
+            }
+
+            tile.sync();
+
+            // before we insert the next key, place original keys that need to move
+            if (tid_old_test_key != tid_test_key && insert_count > 0)
+            {
+                const smallsize max_thread_id = (tid_test_key <= node_size) ? tid_test_key : node_size;
+
+                if (active && my_tid >= tid_old_test_key && my_tid < max_thread_id)
+                {
+                    set_key_node<key_type>(curr_node, my_tid + 1 + insert_count, my_key);
+                    set_offset_node<key_type>(curr_node, my_tid + 1 + insert_count, my_offset);
+                    added_keys = tid_test_key - tid_old_test_key;
+                }
+            }
+
+            insert_index = insert_index + insert_count;
+            smallsize next_index = insert_index + 1;
+
+            if (my_tid == 0)
+            {
+                set_key_node<key_type>(curr_node, insert_index, key);
+                set_offset_node<key_type>(curr_node, insert_index, offset);
+                insert_count++;
+                update_idx++;
+
+                key_type next_key = 0;
+
+                while (update_idx <= maxindex && insert_count < free_space && next_index <= node_size)
+                {
+                    next_key = update_list[update_idx];
+                    offset = offset_list[update_idx];
+
+                    if (next_key == testkey && !max_testkey)
+                    {
+                        update_idx++;
+                        break;
+                    }
+                    else if (next_key > testkey)
+                    {
+                        break;
+                    }
+                    else
+                    {
+                        key = next_key;
+                        set_key_node<key_type>(curr_node, next_index, key);
+                        set_offset_node<key_type>(curr_node, next_index, offset);
+                        insert_count++;
+                        update_idx++;
+                        next_index++;
+                    }
+                }
+            }
+
+            tile.sync();
+
+            insert_count = tile.shfl(insert_count, 0);
+            update_idx = tile.shfl(update_idx, 0);
+            next_index = tile.shfl(next_index, 0);
+
+
+           // update_idx <= maxindex && update_list[update_idx] <= bucket_max)
+            if (update_idx > maxindex || update_list[update_idx] > bucket_max || next_index > node_size || insert_count >= free_space)
+            {
+                insert_curr_node = false;
+                break;
+            }
+
+            key = update_list[update_idx];
+            offset = offset_list[update_idx];
+
+            if (key > curr_max)
+            {
+                insert_curr_node = false;
+                break;
+            }
+
+            found = (active && my_key == key);
+            key_found = tile.any(found);
+
+            while (key_found ) // do not need to check again  && key <= curr_max && update_idx <= maxindex)
+            {
+                update_idx++;
+                if (update_idx > maxindex || update_list[update_idx] > curr_max)
+                {
+                    insert_curr_node = false;
+                    key_found = false;
+                    break;
+                }
+                key = update_list[update_idx];
+                offset = offset_list[update_idx];
+
+                found = (active && my_key == key);
+                key_found = tile.any(found);
+            }
+
+           // if (key_found || key > curr_max || update_idx > maxindex)
+           //     insert_curr_node = false;
+
+            tid_old_test_key = tid_test_key;
+
+            tile.sync();
+        }
+
+        total_insert_count_across_all_nodes += insert_count;
+
+        curr_size += insert_count;
+        if (my_tid == 0)
+        {
+            cg::set<smallsize>(curr_node, sizeof(key_type), curr_size);
+        }
+
+        curr_size = tile.shfl(curr_size, 0);
+
+        if (active && my_tid >= (tid_test_key))
+        {
+            set_key_node<key_type>(curr_node, my_tid + 1 + insert_count, my_key);
+            set_offset_node<key_type>(curr_node, my_tid + 1 + insert_count, my_offset);
+        }
+
+        tile.sync();
+
+        //*** TOO MANY CONDITIONS CHECK THIS ***/
+        //if (curr_size == node_size && update_idx <= maxindex &&
+        //    (total_keys - total_insert_count_across_all_nodes > 0) &&
+         //   (update_list[update_idx] <= curr_max))
+
+        if (curr_size == node_size && update_idx <= maxindex && (update_list[update_idx] <= curr_max))
+       
+        {
+            process_split_tile<key_type>(tile, curr_node, launch_params);
+            curr_max = cg::extract<key_type>(curr_node, 0);
+        }
+    }
+
+#ifdef PRINT_PROCESS_INSERTS_END
+    __syncthreads();
+    if (my_tid == 0 && tile_id == 1)
+    {
+        printf("END INSERTIONS: PRINT ALL NODES\n");
+        print_set_nodes_and_links<key_type>(launch_params, my_tid);
+    }
+#endif
+}
 // file: process_inserts_tile_bulk_only.cuh
 
 template <typename key_type>

@@ -12,16 +12,310 @@ namespace coop_g = cooperative_groups;
 
 // File: rebuild_kernel_group.cuh
 
+// file: rebuild_compact_tile.cuh
 
 
-// Assumes these helpers exist in your codebase:
-// - get_lastposition_bytes<key_type>(smallsize node_size)
-// - extract_key_node<key_type>(uint8_t* node_ptr, smallsize pos)
-// - extract_offset_node<key_type>(uint8_t* node_ptr, smallsize pos)
-// - set_key_node<key_type>(uint8_t* node_ptr, smallsize pos, key_type key)
-// - set_offset_node<key_type>(uint8_t* node_ptr, smallsize pos, smallsize offset)
-// - cg::extract<T>(void* base, size_t byte_offset)
-// - cg::set<T>(void* base, size_t byte_offset, T value)
+
+// Assumed to exist in your codebase (as used in original code):
+// - smallsize
+// - TILE_SIZE
+// - cg::extract<T>, cg::set<T>
+// - get_lastposition_bytes<key_type>(node_size)
+// - extract_key_node<key_type>(node_ptr, slot)
+// - extract_offset_node<key_type>(node_ptr, slot)
+// - set_key_node<key_type>(node_ptr, slot, k)
+// - set_offset_node<key_type>(node_ptr, slot, off)
+// - CUERR (or replace with your error handling)
+
+template <typename key_type, int TILE_SIZE>
+__global__ void rebuild_kernel_compact_one_tile(
+    void *node_buffer,
+    void *representative_temp_buffer,
+    void *allocation_buffer,
+    smallsize* d_nodes_per_bucket,
+    smallsize node_size,
+    smallsize node_stride,
+    smallsize partition_count_with_overflow,
+    smallsize total_nodes_used_from_AR,   // kept for optional debug hooks / consistency
+    smallsize *out_written_nodes)
+{
+    (void)total_nodes_used_from_AR;
+
+    coop_g::thread_block block = coop_g::this_thread_block();
+    coop_g::thread_block_tile<TILE_SIZE> tile = coop_g::tiled_partition<TILE_SIZE>(block);
+
+    // Exactly one tile does all the work.
+    if (blockIdx.x != 0 || tile.meta_group_rank() != 0) return;
+
+    if (node_size > TILE_SIZE) {
+        if (tile.thread_rank() == 0) {
+            printf("ERROR: node_size (%u) > TILE_SIZE (%d)\n",
+                   static_cast<unsigned>(node_size), TILE_SIZE);
+        }
+        return;
+    }
+    const unsigned tid = tile.thread_rank();
+    const smallsize lastposition_bytes = get_lastposition_bytes<key_type>(node_size);
+
+    smallsize written = 0;
+    smallsize local_merge_count = 0; // For optional debug: count how many merges we performed.
+    smallsize global_merge_count = 0; // For optional debug: global count of merges (if we had multiple tiles, would need atomic add).
+
+    for (smallsize bucket_id = 0; bucket_id < partition_count_with_overflow; ++bucket_id)
+    {
+        // Head node for this bucket is in the fixed bucket region of node_buffer.
+        uint8_t *node_ptr = reinterpret_cast<uint8_t *>(node_buffer) + bucket_id * node_stride;
+        local_merge_count = 0; // Reset local merge count for this bucket.
+
+        while (node_ptr != nullptr)
+        {
+            //const unsigned tid = tile.thread_rank();
+
+            // Read current node metadata.
+            key_type curr_max{};
+            smallsize curr_size = 0;
+            smallsize curr_link = 0;
+
+            if (tid == 0) {
+                curr_max  = cg::extract<key_type>(node_ptr, 0);
+                curr_size = cg::extract<smallsize>(node_ptr, sizeof(key_type));
+                curr_link = cg::extract<smallsize>(node_ptr, lastposition_bytes);
+            }
+
+            // Broadcast metadata within the tile.
+            curr_size = static_cast<smallsize>(tile.shfl(static_cast<unsigned>(curr_size), 0));
+            // NOTE: for curr_max (arbitrary key_type), we only need it in tid==0 for writing header.
+            // We'll re-extract it in tid==0 at write time to avoid shfl for non-integral types.
+
+            // Determine next pointer (may be null).
+            uintptr_t next_ptr_u = 0;
+            if (tid == 0) {
+                if (curr_link != 0) {
+                    next_ptr_u = reinterpret_cast<uintptr_t>(
+                        reinterpret_cast<uint8_t *>(allocation_buffer) + (curr_link - 1) * node_stride
+                    );
+                } else {
+                    next_ptr_u = 0;
+                }
+            }
+            next_ptr_u = tile.shfl(next_ptr_u, 0);
+            uint8_t *next_ptr = reinterpret_cast<uint8_t *>(next_ptr_u);
+
+            // Drop zero-size nodes (do not write output).
+            if (curr_size == 0 && (bucket_id != partition_count_with_overflow-1)) {
+                node_ptr = next_ptr;
+                tile.sync();
+                continue;
+            }
+
+            // Lookahead for merge condition.
+            bool do_merge = false;
+            smallsize next_size = 0;
+            key_type next_max{};
+            smallsize next_link = 0;
+            uintptr_t next_next_ptr_u = 0;
+
+            const smallsize half = static_cast<smallsize>(node_size / 2);
+            const smallsize fill_threshold = (node_size / 2);
+
+            if (next_ptr != nullptr) {
+                if (tid == 0) {
+                    next_size = cg::extract<smallsize>(next_ptr, sizeof(key_type));
+                    next_max  = cg::extract<key_type>(next_ptr, 0);
+                    next_link = cg::extract<smallsize>(next_ptr, lastposition_bytes);
+
+                    if (next_link != 0) {
+                        next_next_ptr_u = reinterpret_cast<uintptr_t>(
+                            reinterpret_cast<uint8_t *>(allocation_buffer) + (next_link - 1) * node_stride
+                        );
+                    } else {
+                        next_next_ptr_u = 0;
+                    }
+
+                    const bool next_nonzero = (next_size != 0);
+                    const bool curr_under   = (curr_size < half);
+                    const bool next_under   = (next_size < half);
+                    const bool fits         = (static_cast<smallsize>(curr_size + next_size) <= fill_threshold);
+
+                    do_merge = (next_nonzero && curr_under && next_under && fits);
+                }
+
+                do_merge = static_cast<bool>(tile.shfl(static_cast<unsigned>(do_merge), 0));
+                next_size = static_cast<smallsize>(tile.shfl(static_cast<unsigned>(next_size), 0));
+            }
+
+            const smallsize out_index = written;
+            uint8_t *out_node =
+                reinterpret_cast<uint8_t *>(representative_temp_buffer) + out_index * node_stride;
+
+            // Write header/meta.
+            if (tid == 0)
+            {
+                key_type out_max = cg::extract<key_type>(node_ptr, 0);
+                smallsize out_size = curr_size;
+
+                if (do_merge) {
+                    out_max  = cg::extract<key_type>(next_ptr, 0); // max becomes next_node_max (per spec)
+                    out_size = static_cast<smallsize>(curr_size + next_size);
+                }
+
+                cg::set<key_type>(out_node, 0, out_max);
+                cg::set<smallsize>(out_node, sizeof(key_type), out_size);
+
+                // Dense output: no link chain.
+                cg::set<smallsize>(out_node, lastposition_bytes, static_cast<smallsize>(0));
+            }
+
+            // Cooperative copy of slots.
+            //
+            // Existing convention from your code:
+            // tid in [0..node_size-1] copies slot = tid+1 (=> slots [1..node_size]).
+            if (tid <= static_cast<unsigned>(node_size - 1))
+            {
+                const smallsize slot = static_cast<smallsize>(tid + 1);
+
+                if (!do_merge)
+                {
+                    if (slot <= curr_size) {
+                        const key_type k = extract_key_node<key_type>(node_ptr, slot);
+                        const smallsize off = extract_offset_node<key_type>(node_ptr, slot);
+                        set_key_node<key_type>(out_node, slot, k);
+                        set_offset_node<key_type>(out_node, slot, off);
+                    }
+                }
+                else
+                {
+                    local_merge_count++; 
+                    const smallsize merged_size = static_cast<smallsize>(curr_size + next_size);
+                    if (slot <= merged_size)
+                    {
+                        if (slot <= curr_size) {
+                            const key_type k = extract_key_node<key_type>(node_ptr, slot);
+                            const smallsize off = extract_offset_node<key_type>(node_ptr, slot);
+                            set_key_node<key_type>(out_node, slot, k);
+                            set_offset_node<key_type>(out_node, slot, off);
+                        } else {
+                            const smallsize src_slot = static_cast<smallsize>(slot - curr_size);
+                            const key_type k = extract_key_node<key_type>(next_ptr, src_slot);
+                            const smallsize off = extract_offset_node<key_type>(next_ptr, src_slot);
+                            set_key_node<key_type>(out_node, slot, k);
+                            set_offset_node<key_type>(out_node, slot, off);
+                        }
+                    }
+                }
+            }
+
+            tile.sync();
+
+            // Advance traversal pointer.
+            if (do_merge)
+            {
+                // Skip over next node (merged into current output).
+                if (tid == 0) {
+                    // next_next_ptr_u was computed only in tid==0
+                }
+                next_next_ptr_u = tile.shfl(next_next_ptr_u, 0);
+                node_ptr = reinterpret_cast<uint8_t *>(next_next_ptr_u);
+            }
+            else
+            {
+                node_ptr = next_ptr;
+            }
+
+            // One output node written (either single node or merged pair).
+            ++written;
+            tile.sync();
+        }
+#ifdef PRINT_REBUILD_MERGE_DATA
+        // if(tid ==0) printf("Bucket %u done | local merges in this bucket: %u\n", static_cast<unsigned>(bucket_id), static_cast<unsigned>(local_merge_count));
+    
+#endif
+        global_merge_count += local_merge_count;
+    }
+
+    if (tid == 0) {
+        *out_written_nodes = written;
+    }
+
+#ifdef PRINT_REBUILD_MERGE_DATA
+        if (tid == 0) printf("Total merges in the Data structure: %u\n", static_cast<unsigned>(global_merge_count));
+#endif
+    #ifdef PRINT_REBUILD_DATA_END
+    if (tid == 0 )
+    {
+        printf("After TILED Compact REBUILD Total # Nodes: %u\n", written);
+        print_set_nodes_and_links<key_type>(
+            representative_temp_buffer,
+            allocation_buffer,
+            node_size,
+            node_stride,
+            written,
+            total_nodes_used_from_AR);
+    }
+    #endif
+}
+
+template <typename key_type>
+smallsize rebuild_gpu_structures_compact_one_tile(
+    void *node_buffer,
+    void *representative_temp_buffer,
+    void *allocation_buffer,
+    key_type *maxbuf, // kept for signature compatibility; not used here
+    smallsize node_size,
+    smallsize node_stride,
+    double *time_ms,
+    smallsize total_nodes_used_from_AR,
+    smallsize partition_count_with_overflow)
+{
+    (void)maxbuf;
+
+    // Optional timing hook left intact; you can wrap with cudaEvent if desired.
+    if (time_ms) *time_ms = 0.0;
+
+
+    smallsize node_count = total_nodes_used_from_AR + partition_count_with_overflow;
+    smallsize *nodes_per_bucket = new smallsize[partition_count_with_overflow];
+
+    launch_count_nodes_per_bucket<key_type>(
+        node_buffer, allocation_buffer, node_size, node_stride,
+        total_nodes_used_from_AR, partition_count_with_overflow, nodes_per_bucket);
+
+    cuda_buffer<smallsize> d_nodes_per_bucket;
+    d_nodes_per_bucket.alloc_and_upload(
+        std::vector<smallsize>(nodes_per_bucket, nodes_per_bucket + partition_count_with_overflow));
+    // Device-side counter for how many nodes we actually wrote.
+    smallsize *d_out_count = nullptr;
+    cudaMalloc(&d_out_count, sizeof(smallsize));
+    cudaMemset(d_out_count, 0, sizeof(smallsize));
+
+    // One block, TILE_SIZE threads is enough (exactly one tile does the entire job).
+    // If your TILE_SIZE is > 1024 this would be invalid, but your prior code implies it's warp-like.
+    dim3 blocks(1);
+    dim3 threads(TILE_SIZE);
+
+    rebuild_kernel_compact_one_tile<key_type, TILE_SIZE><<<blocks, threads>>>(
+        node_buffer,
+        representative_temp_buffer,
+        allocation_buffer,
+        d_nodes_per_bucket,
+        node_size,
+        node_stride,
+        partition_count_with_overflow,
+        total_nodes_used_from_AR,
+        d_out_count
+    );
+
+    cudaStreamSynchronize(0);
+    CUERR;
+
+    smallsize h_out_count = 0;
+    cudaMemcpy(&h_out_count, d_out_count, sizeof(smallsize), cudaMemcpyDeviceToHost);
+    cudaFree(d_out_count);
+
+    return h_out_count;
+}
+
+
 
 template <typename key_type, int TILE_SIZE>
 __global__ void rebuild_kernel_tile_per_node(
@@ -62,14 +356,14 @@ __global__ void rebuild_kernel_tile_per_node(
 
     // Head node for this bucket.
     uint8_t *node_ptr = reinterpret_cast<uint8_t *>(node_buffer) + tile_id * node_stride;
-
+    const unsigned tid = tile.thread_rank();
     for (smallsize node_index = 0; node_index < node_count_for_this_partition; ++node_index)
     {
         uint8_t *rep_node =
             reinterpret_cast<uint8_t *>(representative_temp_buffer)
             + (prefix_sum_value + node_index) * node_stride;
 
-        const unsigned tid = tile.thread_rank();
+        
 
         // Thread 0 copies the node header/meta (max_key + size) and clears rep link.
         if (tid == 0)
@@ -86,7 +380,7 @@ __global__ void rebuild_kernel_tile_per_node(
 
         // Threads cooperatively copy key/offset slots [1 .. node_size-1].
         // Slot 0 is reserved for metadata/header.
-        if (tid < static_cast<unsigned>(node_size - 1))
+        if (tid <= static_cast<unsigned>(node_size - 1))
         {
             const smallsize slot = static_cast<smallsize>(tid + 1);
 
@@ -129,9 +423,9 @@ __global__ void rebuild_kernel_tile_per_node(
     }
 
 #ifdef PRINT_REBUILD_DATA_END
-    if (threadIdx.x == 0 && blockIdx.x == 0)
+    if (tid == 0 && blockIdx.x == 0)
     {
-        printf("After REBUILD Total # Nodes: %u\n", static_cast<unsigned>(total_nodes));
+        printf("After TILED REBUILD Total # Nodes: %u\n", static_cast<unsigned>(total_nodes));
         print_set_nodes_and_links<key_type>(
             representative_temp_buffer,
             allocation_buffer,
@@ -142,6 +436,170 @@ __global__ void rebuild_kernel_tile_per_node(
     }
 #endif
 }
+
+template <typename key_type, int TILE_SIZE>
+__global__ void rebuild_kernel_tile_per_node_DEBUG(
+    void *node_buffer,
+    void *representative_temp_buffer,
+    void *allocation_buffer,
+    smallsize node_size,
+    smallsize node_stride,
+    smallsize partition_count_with_overflow,
+    smallsize total_nodes_used_from_AR,
+    smallsize total_nodes,
+    smallsize *nodes_per_bucket,
+    smallsize *prefix_sum_array)
+{
+    coop_g::thread_block block = coop_g::this_thread_block();
+    coop_g::thread_block_tile<TILE_SIZE> tile = coop_g::tiled_partition<TILE_SIZE>(block);
+
+    const smallsize tiles_per_block = static_cast<smallsize>(blockDim.x / TILE_SIZE);
+    const smallsize tile_id = static_cast<smallsize>(blockIdx.x) * tiles_per_block + tile.meta_group_rank();
+
+    if (tile_id >= partition_count_with_overflow)
+        return;
+
+    if (node_size > TILE_SIZE) {
+        if (tile.thread_rank() == 0) {
+            printf("ERROR: node_size (%u) > TILE_SIZE (%d)\n",
+                   static_cast<unsigned>(node_size), TILE_SIZE);
+            DEBUG_REBUILD_DEV("ERROR node_size>TILE", (unsigned)node_size, (unsigned)TILE_SIZE);
+        }
+        return;
+    }
+
+    const smallsize node_count_for_this_partition = nodes_per_bucket[tile_id];
+    if (node_count_for_this_partition == 0) {
+        if (tile.thread_rank() == 0) {
+            DEBUG_REBUILD_DEV("ZeroNodes bucket", (unsigned)tile_id, (unsigned)partition_count_with_overflow);
+        }
+        return;
+    }
+
+    const smallsize prefix_sum_value = (tile_id == 0) ? 0 : prefix_sum_array[tile_id - 1];
+    const smallsize lastposition_bytes = get_lastposition_bytes<key_type>(node_size);
+
+    if (tile.thread_rank() == 0) {
+        DEBUG_REBUILD_DEV("Bucket begin", (unsigned)tile_id, (unsigned)node_count_for_this_partition, (unsigned)prefix_sum_value);
+    }
+
+    // Head node for this bucket.
+    uint8_t *node_ptr = reinterpret_cast<uint8_t *>(node_buffer) + tile_id * node_stride;
+
+    for (smallsize node_index = 0; node_index < node_count_for_this_partition; ++node_index)
+    {
+        uint8_t *rep_node =
+            reinterpret_cast<uint8_t *>(representative_temp_buffer)
+            + (prefix_sum_value + node_index) * node_stride;
+
+        const unsigned tid = tile.thread_rank();
+
+        // Thread 0 copies the node header/meta (max_key + size) and clears rep link.
+        if (tid == 0)
+        {
+            key_type curr_max = cg::extract<key_type>(node_ptr, 0);
+            smallsize curr_size = cg::extract<smallsize>(node_ptr, sizeof(key_type));
+
+            DEBUG_REBUILD_DEV("Node Meta data hdr",tile_id, curr_size, curr_max);
+            //DEBUG_REBUILD_DEV("Node max", curr_max, tile_id, node_index);
+
+            // Print keys/offsets in source node slot-by-slot (debug: "keys one by one")
+            for (smallsize s = 1; s <= node_size; ++s) {
+                const key_type k_dbg = extract_key_node<key_type>(node_ptr, s);
+                const smallsize off_dbg = extract_offset_node<key_type>(node_ptr, s);
+
+                DEBUG_REBUILD_DEV("Key(slot)", (unsigned long long)k_dbg, (unsigned)s, (unsigned)node_index);
+                DEBUG_REBUILD_DEV("Off(slot)", (unsigned)off_dbg, (unsigned)s, (unsigned)node_index);
+            }
+
+            cg::set<key_type>(rep_node, 0, curr_max);
+            cg::set<smallsize>(rep_node, sizeof(key_type), curr_size);
+
+            // Representative nodes are stored densely; no linked chain in the output.
+            cg::set<smallsize>(rep_node, lastposition_bytes, static_cast<smallsize>(0));
+        }
+
+        // Threads cooperatively copy key/offset slots [1 .. node_size-1].
+        // Slot 0 is reserved for metadata/header.
+        if (tid <= static_cast<unsigned>(node_size - 1))
+        {
+            const smallsize slot = static_cast<smallsize>(tid + 1);
+
+            const key_type k = extract_key_node<key_type>(node_ptr, slot);
+            const smallsize off = extract_offset_node<key_type>(node_ptr, slot);
+
+            set_key_node<key_type>(rep_node, slot, k);
+            set_offset_node<key_type>(rep_node, slot, off);
+
+             if (tile_id == 2) {
+                DEBUG_REBUILD_DEV("In Loop Copied node", tid, k, node_size);
+             }
+        }
+
+        tile.sync();
+
+        if (tile_id == 2) {
+            DEBUG_REBUILD_DEV("Copied node", (unsigned)tid, (unsigned)node_index, (unsigned)node_size);
+        }
+
+        // Advance to next node in the bucket chain (thread 0 reads link and broadcasts next pointer).
+        if (node_index + 1 < node_count_for_this_partition)
+        {
+            smallsize link = 0;
+            uintptr_t next_ptr_u = 0;
+
+            if (tid == 0)
+            {
+                link = cg::extract<smallsize>(node_ptr, lastposition_bytes);
+                DEBUG_REBUILD_DEV("Link read", (unsigned)link, (unsigned)tile_id, (unsigned)node_index);
+
+                if (link == 0) {
+                    printf("ERROR: link == 0 | tile_id %d | node_index %u\n",
+                           static_cast<int>(tile_id), static_cast<unsigned>(node_index));
+                    DEBUG_REBUILD_DEV("ERROR link==0", (unsigned)tile_id, (unsigned)node_index);
+                    next_ptr_u = 0;
+                } else {
+                    next_ptr_u = reinterpret_cast<uintptr_t>(
+                        reinterpret_cast<uint8_t *>(allocation_buffer) + (link - 1) * node_stride
+                    );
+                }
+            }
+
+            next_ptr_u = tile.shfl(next_ptr_u, 0);
+            if (next_ptr_u == 0)
+                return;
+
+            node_ptr = reinterpret_cast<uint8_t *>(next_ptr_u);
+            tile.sync();
+
+            if (tid == 0) {
+                DEBUG_REBUILD_DEV("Advance ok", (unsigned)tile_id, (unsigned)(node_index + 1), (unsigned)link);
+            }
+        }
+        else
+        {
+            if (tid == 0) {
+                DEBUG_REBUILD_DEV("Bucket done", (unsigned)tile_id, (unsigned)node_index, (unsigned)node_count_for_this_partition);
+            }
+        }
+    }
+
+#ifdef PRINT_REBUILD_DATA_END
+    if (threadIdx.x == 0 && blockIdx.x == 0)
+    {
+        printf("After TILED REBUILD Total # Nodes: %u\n", static_cast<unsigned>(total_nodes));
+        DEBUG_REBUILD_DEV("After rebuild nodes", (unsigned)total_nodes, (unsigned)total_nodes_used_from_AR, (unsigned)partition_count_with_overflow);
+        print_set_nodes_and_links<key_type>(
+            representative_temp_buffer,
+            allocation_buffer,
+            node_size,
+            node_stride,
+            partition_count_with_overflow,
+            total_nodes_used_from_AR);
+    }
+#endif
+}
+
 
 
 template <typename key_type>
@@ -353,7 +811,7 @@ smallsize count_zero_nodes_group(const smallsize *nodes_per_bucket, size_t parti
 }
 
 template <typename key_type>
-smallsize rebuild_gpu_structures_group(
+smallsize rebuild_gpu_structures_tile(
     void *node_buffer,
     void *representative_temp_buffer,
     void *allocation_buffer,
@@ -383,7 +841,7 @@ smallsize rebuild_gpu_structures_group(
     smallsize total_zero_nodes = count_zero_nodes(nodes_per_bucket, partition_count_with_overflow);
 
     // dfine tile params
-    const int tile_size = TILE_SIZE; // Must match kernel definition
+    const int tile_size = TILE_SIZE; // Must match global definition
     const int total_tiles = partition_count_with_overflow;
     const int tiles_per_block = 16; // Adjust if needed
     const int threads_per_block = tile_size * tiles_per_block;
@@ -402,8 +860,10 @@ smallsize rebuild_gpu_structures_group(
         d_prefix_sum_array.ptr(),
         tile_size
     ); */ 
-   rebuild_kernel_tile_per_node<key_type, TILE_SIZE><<<blocks, threads_per_block>>>(
-        
+
+   //rebuild_kernel_tile_per_node_DEBUG<key_type, TILE_SIZE><<<blocks, threads_per_block>>>(
+      rebuild_kernel_tile_per_node<key_type, TILE_SIZE><<<blocks, threads_per_block>>>(
+ 
         node_buffer,
         representative_temp_buffer,
         allocation_buffer,
