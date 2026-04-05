@@ -1,6 +1,12 @@
 
-# Ignore build outputs
+# Ignore 
 build/
+
+# Ignore 
+KeepOlderFiles/
+
+# Ignore 
+experimentfiles/
 
 # Ignore local benchmark/update artifacts
 KEEP_benchmarks_updates/
