@@ -1,3 +1,11 @@
+// =============================================================================
+// File: debug_definitions_updates.cuh
+// Author: Rosina Kharal
+// Description: Implements debug_definitions_updates     
+// Copyright (c) 2025 Justus Henneberg, Rosina Kharal
+// SPDX-License-Identifier: GPL-3.0-or-later
+// =============================================================================
+
 #ifndef DEBUG_DEFINITIONS_UPDATES_H
 #define DEBUG_DEFINITIONS_UPDATES_H
 

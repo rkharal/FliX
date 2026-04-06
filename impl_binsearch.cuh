@@ -1,3 +1,11 @@
+// =============================================================================
+// File: impl_binsearch.cuh
+// Author: Justus Henneberg
+// Description: Implements impl_binsearch     
+// Copyright (c) 2025 Justus Henneberg, Rosina Kharal
+// SPDX-License-Identifier: GPL-3.0-or-later
+// =============================================================================
+
 #ifndef BINSEARCH_INDEX_H
 #define BINSEARCH_INDEX_H
 

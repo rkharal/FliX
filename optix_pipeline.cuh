@@ -1,3 +1,11 @@
+// =============================================================================
+// File: optix_pipeline.cuh
+// Author: Justus Henneberg
+// Description: Implements optix_pipeline     
+// Copyright (c) 2025 Justus Henneberg, Rosina Kharal
+// SPDX-License-Identifier: GPL-3.0-or-later
+// =============================================================================
+
 #ifndef OPTIX_PIPELINE_H
 #define OPTIX_PIPELINE_H
 

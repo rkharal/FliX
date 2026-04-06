@@ -1,3 +1,11 @@
+// =============================================================================
+// File: impl_opt_sorted_array.cuh
+// Author: Justus Henneberg
+// Description: Implements impl_opt_sorted_array     
+// Copyright (c) 2025 Justus Henneberg, Rosina Kharal
+// SPDX-License-Identifier: GPL-3.0-or-later
+// =============================================================================
+
 #ifndef IMPL_OPT_SORTED_ARRAY_CUH
 #define IMPL_OPT_SORTED_ARRAY_CUH
 

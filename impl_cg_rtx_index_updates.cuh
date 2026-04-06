@@ -1,3 +1,11 @@
+// =============================================================================
+// File: impl_cg_rtx_index_updates.cuh
+// Author: Rosina Kharal
+// Description: Implements impl_cg_rtx_index_updates     
+// Copyright (c) 2025 Justus Henneberg, Rosina Kharal
+// SPDX-License-Identifier: GPL-3.0-or-later
+// =============================================================================
+
 #ifndef INDEX_PROTOTYPE_IMPL_CG_RTX_INDEX_UPDATES_CUH
 #define INDEX_PROTOTYPE_IMPL_CG_RTX_INDEX_UPDATES_CUH
 

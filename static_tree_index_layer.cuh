@@ -1,3 +1,11 @@
+// =============================================================================
+// File: static_tree_index_layer.cuh
+// Author: Justus Henneberg
+// Description: Implements static_tree_index_layer     
+// Copyright (c) 2025 Justus Henneberg, Rosina Kharal
+// SPDX-License-Identifier: GPL-3.0-or-later
+// =============================================================================
+
 
 #ifndef STATIC_TREE_INDEX_LAYER_CUH
 #define STATIC_TREE_INDEX_LAYER_CUH

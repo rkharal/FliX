@@ -1,3 +1,11 @@
+// =============================================================================
+// File: lsm_debug_tree.cuh
+// Author: Justus Henneberg
+// Description: Implements lsm_debug_tree     
+// Copyright (c) 2025 Justus Henneberg, Rosina Kharal
+// SPDX-License-Identifier: GPL-3.0-or-later
+// =============================================================================
+
 #ifndef LSM_DEBUG_TREE_CUH  
 #define LSM_DEBUG_TREE_CUH
 

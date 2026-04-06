@@ -1,3 +1,11 @@
+// =============================================================================
+// File: static_tree_functions.cuh
+// Author: Justus Henneberg
+// Description: Implements static_tree_functions     
+// Copyright (c) 2025 Justus Henneberg, Rosina Kharal
+// SPDX-License-Identifier: GPL-3.0-or-later
+// =============================================================================
+
 
 template <typename key_type>
 DEVICEQUALIFIER void process_lookups_tile_ldg(

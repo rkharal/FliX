@@ -1,3 +1,11 @@
+// =============================================================================
+// File: definitions_opt.cuh
+// Author: Justus Henneberg
+// Description: Implements definitions_opt     
+// Copyright (c) 2025 Justus Henneberg, Rosina Kharal
+// SPDX-License-Identifier: GPL-3.0-or-later
+// =============================================================================
+
 #ifndef DEFINITIONS_OPT_CUH
 #define DEFINITIONS_OPT_CUH
 

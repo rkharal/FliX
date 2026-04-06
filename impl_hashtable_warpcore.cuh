@@ -1,3 +1,11 @@
+// =============================================================================
+// File: impl_hashtable_warpcore.cuh
+// Author: Justus Henneberg
+// Description: Implements impl_hashtable_warpcore     
+// Copyright (c) 2025 Justus Henneberg, Rosina Kharal
+// SPDX-License-Identifier: GPL-3.0-or-later
+// =============================================================================
+
 #ifndef IMPL_HASHTABLE_WARPCORE_CUH
 #define IMPL_HASHTABLE_WARPCORE_CUH
 

@@ -1,3 +1,11 @@
+// =============================================================================
+// File: definitions_coarse_granular.cuh
+// Author: Justus Henneberg
+// Description: Implements definitions_coarse_granular     
+// Copyright (c) 2025 Justus Henneberg, Rosina Kharal
+// SPDX-License-Identifier: GPL-3.0-or-later
+// =============================================================================
+
 #ifndef DEFINITIONS_COARSE_GRANULAR_H
 #define DEFINITIONS_COARSE_GRANULAR_H
 

@@ -1,3 +1,11 @@
+// =============================================================================
+// File: gpusort2.cuh
+// Author: Justus Henneberg
+// Description: Implements gpusort2     
+// Copyright (c) 2025 Justus Henneberg, Rosina Kharal
+// SPDX-License-Identifier: GPL-3.0-or-later
+// =============================================================================
+
 // file: app/main_micro_bench_168.cu
 #include <cstdint>
 #include <vector>

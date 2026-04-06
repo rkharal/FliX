@@ -1,3 +1,11 @@
+// =============================================================================
+// File: coarse_granular_combined_updates.cuh
+// Author: Rosina Kharal
+// Description: Implements coarse_granular_combined_updates
+// Copyright (c) 2025 Justus Henneberg, Rosina Kharal
+// SPDX-License-Identifier: GPL-3.0-or-later
+// =============================================================================
+
 // filepath: /home/rkharal/OPTIX/cgRX_LatestNov1124/rtx-index/index-prototype/src/coarse_granular_combined_updates.cuh
 #ifndef COARSE_GRANULAR_COMBINED_UPDATES_CUH
 #define COARSE_GRANULAR_COMBINED_UPDATES_CUH

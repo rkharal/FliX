@@ -1,3 +1,11 @@
+// =============================================================================
+// File: benchmarks_lookups.cuh
+// Author: Justus Henneberg
+// Description: Implements benchmarks_lookups     
+// Copyright (c) 2025 Justus Henneberg, Rosina Kharal
+// SPDX-License-Identifier: GPL-3.0-or-later
+// =============================================================================
+
 #ifndef BENCHMARKS_LOOKUPS_CUH
 #define BENCHMARKS_LOOKUPS_CUH
 

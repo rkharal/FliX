@@ -1,3 +1,11 @@
+// =============================================================================
+// File: optix_wrapper.cu
+// Author: Justus Henneberg
+// Description: Launch experiments     
+// Copyright (c) 2025 Justus Henneberg, Rosina Kharal
+// SPDX-License-Identifier: GPL-3.0-or-later
+// =============================================================================
+
 #include "optix_wrapper.cuh"
 
 // this include may only appear in a single source file:

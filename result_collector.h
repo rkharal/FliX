@@ -1,3 +1,11 @@
+// =============================================================================
+// File: result_collector.h
+// Author: Justus Henneberg
+// Description: Defines expressions and constants used in FliX     
+// Copyright (c) 2025 Justus Henneberg, Rosina Kharal
+// SPDX-License-Identifier: GPL-3.0-or-later
+// =============================================================================
+
 #ifndef INFOSYS_RESULT_COLLECTOR_H
 #define INFOSYS_RESULT_COLLECTOR_H
 

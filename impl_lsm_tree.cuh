@@ -1,3 +1,11 @@
+// =============================================================================
+// File: impl_lsm_tree.cuh
+// Author: Justus Henneberg
+// Description: Implements impl_lsm_tree     
+// Copyright (c) 2025 Justus Henneberg, Rosina Kharal
+// SPDX-License-Identifier: GPL-3.0-or-later
+// =============================================================================
+
 #ifndef IMPL_LSM_TREE_CUH
 #define IMPL_LSM_TREE_CUH
 

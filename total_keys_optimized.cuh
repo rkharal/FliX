@@ -1,3 +1,11 @@
+// =============================================================================
+// File: total_keys_optimized.cuh
+// Author: Justus Henneberg
+// Description: Implements total_keys_optimized     
+// Copyright (c) 2025 Justus Henneberg, Rosina Kharal
+// SPDX-License-Identifier: GPL-3.0-or-later
+// =============================================================================
+
 // File: count_total_keys.cu
 
 #include <cuda_runtime.h>

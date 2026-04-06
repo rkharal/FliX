@@ -1,3 +1,11 @@
+// =============================================================================
+// File: coarse_granular_lookups.cuh
+// Author: Rosina Kharal
+// Description: Implements coarse_granular_lookups
+// Copyright (c) 2025 Justus Henneberg, Rosina Kharal
+// SPDX-License-Identifier: GPL-3.0-or-later
+// =============================================================================
+
 #ifndef INDEX_PROTOTYPE_COARSE_GRANULAR_LOOKUPS_CUH
 #define INDEX_PROTOTYPE_COARSE_GRANULAR_LOOKUPS_CUH
 

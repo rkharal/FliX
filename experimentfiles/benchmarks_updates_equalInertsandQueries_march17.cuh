@@ -1,3 +1,11 @@
+// =============================================================================
+// File: benchmarks_updates_equalInertsandQueries_march17.cuh
+// Author: Justus Henneberg
+// Description: Implements benchmarks_updates_equalInertsandQueries_march17     
+// Copyright (c) 2025 Justus Henneberg, Rosina Kharal
+// SPDX-License-Identifier: GPL-3.0-or-later
+// =============================================================================
+
 #ifndef BENCHMARKS_UPDATES_CUH
 #define BENCHMARKS_UPDATES_CUH
 

@@ -1,3 +1,11 @@
+// =============================================================================
+// File: launch_parameters_coarse_granular_updates.h
+// Author: Rosina Kharal
+// Description: Defines expressions and constants used in FliX
+// Copyright (c) 2025 Justus Henneberg, Rosina Kharal
+// SPDX-License-Identifier: GPL-3.0-or-later
+// =============================================================================
+
 #ifndef LAUNCH_PARAMETERS_COARSE_GRANULAR_UPDATES_H
 #define LAUNCH_PARAMETERS_COARSE_GRANULAR_UPDATES_H
 

@@ -1,3 +1,11 @@
+// =============================================================================
+// File: impl_opt_binsearch.cuh
+// Author: Justus Henneberg
+// Description: Implements impl_opt_binsearch     
+// Copyright (c) 2025 Justus Henneberg, Rosina Kharal
+// SPDX-License-Identifier: GPL-3.0-or-later
+// =============================================================================
+
 #ifndef IMPL_OPT_BINSEARCH_CUH
 #define IMPL_OPT_BINSEARCH_CUH
 

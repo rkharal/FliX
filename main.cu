@@ -1,3 +1,11 @@
+// =============================================================================
+// File: main.cu
+// Author: Justus Henneberg, Rosina Kharal
+// Description: Launch experiments     
+// Copyright (c) 2025 Justus Henneberg, Rosina Kharal
+// SPDX-License-Identifier: GPL-3.0-or-later
+// =============================================================================
+
 #include "benchmarks.cuh"
 #include "benchmarks_updates.cuh"
 #include "benchmarks_lookups.cuh"

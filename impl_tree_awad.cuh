@@ -1,3 +1,11 @@
+// =============================================================================
+// File: impl_tree_awad.cuh
+// Author: Justus Henneberg
+// Description: Implements impl_tree_awad     
+// Copyright (c) 2025 Justus Henneberg, Rosina Kharal
+// SPDX-License-Identifier: GPL-3.0-or-later
+// =============================================================================
+
 #ifndef IMPL_TREE_AWAD_CUH
 #define IMPL_TREE_AWAD_CUH
 

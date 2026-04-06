@@ -1,3 +1,11 @@
+// =============================================================================
+// File: input_generation.h
+// Author: Justus Henneberg
+// Description: Defines expressions and constants used in FliX     
+// Copyright (c) 2025 Justus Henneberg, Rosina Kharal
+// SPDX-License-Identifier: GPL-3.0-or-later
+// =============================================================================
+
 #ifndef INPUT_GENERATION_H
 #define INPUT_GENERATION_H
 

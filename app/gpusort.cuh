@@ -1,3 +1,11 @@
+// =============================================================================
+// File: gpusort.cuh
+// Author: Justus Henneberg
+// Description: Implements gpusort     
+// Copyright (c) 2025 Justus Henneberg, Rosina Kharal
+// SPDX-License-Identifier: GPL-3.0-or-later
+// =============================================================================
+
 template <typename element_type>
 void mirco_benchmark_search_and_coalesced() {
     rc::result_collector rc_sort;

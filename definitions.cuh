@@ -1,3 +1,11 @@
+// =============================================================================
+// File: definitions.cuh
+// Author: Justus Henneberg
+// Description: Implements definitions     
+// Copyright (c) 2025 Justus Henneberg, Rosina Kharal
+// SPDX-License-Identifier: GPL-3.0-or-later
+// =============================================================================
+
 #ifndef DEFINITIONS_CUH
 #define DEFINITIONS_CUH
 

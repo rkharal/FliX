@@ -1,3 +1,11 @@
+// =============================================================================
+// File: impl_rtscan.cuh
+// Author: Justus Henneberg
+// Description: Implements impl_rtscan     
+// Copyright (c) 2025 Justus Henneberg, Rosina Kharal
+// SPDX-License-Identifier: GPL-3.0-or-later
+// =============================================================================
+
 #ifndef IMPL_RTSCAN_CUH
 #define IMPL_RTSCAN_CUH
 

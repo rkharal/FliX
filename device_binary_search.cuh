@@ -1,3 +1,11 @@
+// =============================================================================
+// File: device_binary_search.cuh
+// Author: Justus Henneberg
+// Description: Implements device_binary_search     
+// Copyright (c) 2025 Justus Henneberg, Rosina Kharal
+// SPDX-License-Identifier: GPL-3.0-or-later
+// =============================================================================
+
 #ifndef DEVICE_BINARY_SEARCH_CUH
 #define DEVICE_BINARY_SEARCH_CUH
 

@@ -1,3 +1,11 @@
+// =============================================================================
+// File: bucketinserts.cuh
+// Author: Justus Henneberg
+// Description: Implements bucketinserts     
+// Copyright (c) 2025 Justus Henneberg, Rosina Kharal
+// SPDX-License-Identifier: GPL-3.0-or-later
+// =============================================================================
+
 
 // new Experiments Jan 2025
 

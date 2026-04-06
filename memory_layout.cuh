@@ -1,3 +1,11 @@
+// =============================================================================
+// File: memory_layout.cuh
+// Author: Justus Henneberg
+// Description: Implements memory_layout     
+// Copyright (c) 2025 Justus Henneberg, Rosina Kharal
+// SPDX-License-Identifier: GPL-3.0-or-later
+// =============================================================================
+
 #ifndef MEMORY_LAYOUT_CUH
 #define MEMORY_LAYOUT_CUH
 

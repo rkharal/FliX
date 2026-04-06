@@ -1,3 +1,11 @@
+// =============================================================================
+// File: device_code_coarse_granular_updates.cu
+// Author: Justus Henneberg, Rosina Kharal
+// Description: Launch experiments     
+// Copyright (c) 2025 Justus Henneberg, Rosina Kharal
+// SPDX-License-Identifier: GPL-3.0-or-later
+// =============================================================================
+
 #include "launch_parameters.cuh"
 
 #include "coarse_granular_inserts.cuh"

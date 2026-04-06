@@ -1,3 +1,11 @@
+// =============================================================================
+// File: impl_scan.cuh
+// Author: Justus Henneberg
+// Description: Implements impl_scan     
+// Copyright (c) 2025 Justus Henneberg, Rosina Kharal
+// SPDX-License-Identifier: GPL-3.0-or-later
+// =============================================================================
+
 #ifndef SCAN_BASELINE_H
 #define SCAN_BASELINE_H
 

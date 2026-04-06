@@ -1,3 +1,11 @@
+// =============================================================================
+// File: tile_utils.cuh
+// Author: Justus Henneberg
+// Description: Implements tile_utils     
+// Copyright (c) 2025 Justus Henneberg, Rosina Kharal
+// SPDX-License-Identifier: GPL-3.0-or-later
+// =============================================================================
+
 #ifndef TILE_SEARCH_UTILS_CUH
 #define TILE_SEARCH_UTILS_CUH
 

@@ -1,3 +1,11 @@
+// =============================================================================
+// File: definitions_updates.cuh
+// Author: Justus Henneberg, Rosina Kharal
+// Description: Implements definitions_updates     
+// Copyright (c) 2025 Justus Henneberg, Rosina Kharal
+// SPDX-License-Identifier: GPL-3.0-or-later
+// =============================================================================
+
 #ifndef DEFINITIONS_UPDATES_H
 #define DEFINITIONS_UPDATES_H
 

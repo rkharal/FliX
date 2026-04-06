@@ -1,3 +1,11 @@
+// =============================================================================
+// File: cuda_buffer.cuh
+// Author: Justus Henneberg
+// Description: Implements cuda_buffer     
+// Copyright (c) 2025 Justus Henneberg, Rosina Kharal
+// SPDX-License-Identifier: GPL-3.0-or-later
+// =============================================================================
+
 #ifndef CUDA_BUFFER_H
 #define CUDA_BUFFER_H
 

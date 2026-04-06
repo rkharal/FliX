@@ -1,3 +1,11 @@
+// =============================================================================
+// File: device_code_rtscan.cu
+// Author: Justus Henneberg
+// Description: Launch experiments     
+// Copyright (c) 2025 Justus Henneberg, Rosina Kharal
+// SPDX-License-Identifier: GPL-3.0-or-later
+// =============================================================================
+
 #include "launch_parameters_rtscan.h"
 
 

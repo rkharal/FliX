@@ -1,3 +1,11 @@
+// =============================================================================
+// File: build_fine_granular.h
+// Author: Justus Henneberg
+// Description: Defines expressions and constants used in FliX     
+// Copyright (c) 2025 Justus Henneberg, Rosina Kharal
+// SPDX-License-Identifier: GPL-3.0-or-later
+// =============================================================================
+
 #ifndef INDEX_PROTOTYPE_BUILD_FINE_GRANULAR_H
 #define INDEX_PROTOTYPE_BUILD_FINE_GRANULAR_H
 

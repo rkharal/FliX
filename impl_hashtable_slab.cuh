@@ -1,3 +1,11 @@
+// =============================================================================
+// File: impl_hashtable_slab.cuh
+// Author: Justus Henneberg
+// Description: Implements impl_hashtable_slab     
+// Copyright (c) 2025 Justus Henneberg, Rosina Kharal
+// SPDX-License-Identifier: GPL-3.0-or-later
+// =============================================================================
+
 #ifndef IMPL_HASHTABLE_SLAB_CUH
 #define IMPL_HASHTABLE_SLAB_CUH
 

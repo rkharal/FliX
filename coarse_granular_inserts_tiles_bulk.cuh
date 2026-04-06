@@ -1,3 +1,11 @@
+// =============================================================================
+// File: coarse_granular_inserts_tiles_bulk.cuh
+// Author: Rosina Kharal
+// Description: Implements coarse_granular_inserts_tiles_bulk
+// Copyright (c) 2025 Justus Henneberg, Rosina Kharal
+// SPDX-License-Identifier: GPL-3.0-or-later
+// =============================================================================
+
 #ifndef INDEX_PROTOTYPE_IMPL_COARSE_GRANULAR_INSERTS_TILES_BULK_CUH
 #define INDEX_PROTOTYPE_IMPL_COARSE_GRANULAR_INSERTS_TILES_BULK_CUH
 

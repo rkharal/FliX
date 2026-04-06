@@ -1,3 +1,11 @@
+// =============================================================================
+// File: impl_cg_rtx_index.cuh
+// Author: Justus Henneberg
+// Description: Implements impl_cg_rtx_index     
+// Copyright (c) 2025 Justus Henneberg, Rosina Kharal
+// SPDX-License-Identifier: GPL-3.0-or-later
+// =============================================================================
+
 #ifndef IMPL_COARSE_RTX_INDEX_CUH
 #define IMPL_COARSE_RTX_INDEX_CUH
 

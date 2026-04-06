@@ -1,3 +1,11 @@
+// =============================================================================
+// File: impl_opt_static_binary_tree.cuh
+// Author: Justus Henneberg
+// Description: Implements impl_opt_static_binary_tree     
+// Copyright (c) 2025 Justus Henneberg, Rosina Kharal
+// SPDX-License-Identifier: GPL-3.0-or-later
+// =============================================================================
+
 #ifndef IMPL_OPT_STATIC_BINARY_TREE_CUH
 #define IMPL_OPT_STATIC_BINARY_TREE_CUH
 

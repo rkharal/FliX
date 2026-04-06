@@ -1,3 +1,11 @@
+// =============================================================================
+// File: build_coarse_granular.cuh
+// Author: Justus Henneberg
+// Description: Implements build_coarse_granular     
+// Copyright (c) 2025 Justus Henneberg, Rosina Kharal
+// SPDX-License-Identifier: GPL-3.0-or-later
+// =============================================================================
+
 #ifndef BUILD_COARSE_GRANULAR_CUH
 #define BUILD_COARSE_GRANULAR_CUH
 
