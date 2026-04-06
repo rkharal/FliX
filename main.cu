@@ -172,8 +172,8 @@ rc::result_collector rc;
     // benchmark_updates<cg_rtx_index_updates<key32, 10, 0, 50, 200>>(rc, runs);
 #else
 #pragma message "BASELINES=NO"
-//benchmark_updates<hashtable_warpcore<key32, 30>>(rc, runs);
-        printf("WHAT is nodesize ,cachelinesize %d, %d\n", input_node_size, cache_line_size);
+         //benchmark_updates<hashtable_warpcore<key32, 30>>(rc, runs);
+        //printf("nodesize ,cachelinesize %d, %d\n", input_node_size, cache_line_size);
         benchmark_updates<cg_rtx_index_updates<key32, cache_line_size, input_node_size, 50>>(rc, runs);
 #endif
        // benchmark_updates<cg_rtx_index_updates<key32, 0, 4, 50, 100>>(rc, runs);

@@ -1475,11 +1475,10 @@ void benchmark_updates(
 
                 if constexpr (supports_updates)
                 {
-
-                    // a Dummy round of Insertions:
-                    if (step == 1 && index.name == "cg_rtx_index_updates")
+                    // Warm up the kernels with a dummy insert to ensure fair timing for the first real update batch
+                    if (step == 1 )  
                     {
-                        std::cerr << "performing dummy inserts\n";
+                        std::cerr << "Performing Dummy Insert Round\n";
                         size_t dummy_insert_size = 10; // 2000;
                         if (dummy_insert_size > active_range_end - active_range_start)
                         {

@@ -2,6 +2,8 @@
 # Ignore 
 build/
 
+backup_long_versions_for_paper/
+
 # Ignore 
 KeepOlderFiles/
 
