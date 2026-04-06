@@ -1,6 +1,6 @@
 
 # Ignore 
-# Ignore generated/build content
+# Ignore 
 comment_directory/
 
 build/*
