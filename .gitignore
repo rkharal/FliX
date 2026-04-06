@@ -1,6 +1,8 @@
 
 # Ignore 
 # Ignore generated/build content
+comment_directory/
+
 build/*
 
 # Keep this directory in the repo
