@@ -1,6 +1,11 @@
 
 # Ignore 
-build/
+# Ignore generated/build content
+build/*
+
+# Keep this directory in the repo
+!build/runscripts_experiments/
+!build/runscripts_experiments/**
 
 backup_long_versions_for_paper/
 
