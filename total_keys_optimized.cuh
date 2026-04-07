@@ -1,7 +1,7 @@
 // =============================================================================
 // File: total_keys_optimized.cuh
-// Author: Justus Henneberg
-// Description: Implements total_keys_optimized     
+// Author: Rosina Kharal
+// Description: Implements total_keys_optimized to sum the total keys in the DS as a correctness check after updates.    
 // Copyright (c) 2025 Justus Henneberg, Rosina Kharal
 // SPDX-License-Identifier: GPL-3.0-or-later
 // =============================================================================

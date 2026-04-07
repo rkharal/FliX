@@ -1,7 +1,8 @@
 // =============================================================================
 // File: build_coarse_granular.cuh
 // Author: Justus Henneberg
-// Description: Implements build_coarse_granular     
+// Description: Implements build_coarse_granular : For a Ray Tracing Index Layer
+//              Ray Tracing is removed in final version of FliX. 
 // Copyright (c) 2025 Justus Henneberg, Rosina Kharal
 // SPDX-License-Identifier: GPL-3.0-or-later
 // =============================================================================

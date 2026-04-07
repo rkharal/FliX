@@ -1,16 +1,16 @@
 # FliX: Flipped-Indexing for Scalable GPU Queries and Updates
 
 This repository contains the source code and experimental framework for the paper:  
-**"FliX: Flipped-Indexing for Scalable GPU Queries and Updates"**
+**_FliX: Flipped-Indexing for Scalable GPU Queries and Updates_**
 
 FliX is a high-performance GPU-resident indexing structure designed to support high-velocity concurrent updates alongside fast point and range queries.
 
 ## Authors
 
-* **Rosina Kharal** — University of Waterloo
-* **Justus Henneberg** — Johannes Gutenberg University Mainz
-* **Trevor Brown** — University of Waterloo
-* **Felix Schuhknecht** — Johannes Gutenberg University Mainz
+* **Rosina Kharal** — University of Waterloo, Canada
+* **Justus Henneberg** — Johannes Gutenberg University of Mainz, Germany
+* **Trevor Brown** — University of Waterloo, Canada
+* **Felix Schuhknecht** — Johannes Gutenberg University of  Mainz, Germany
 
 ---
 
@@ -78,10 +78,10 @@ To reproduce the experimental results from the paper:
 ## License and Attribution
 
 ```cpp
-// =============================================================================
-// Authors:       Justus Henneberg, Rosina Kharal
-// Copyright (c) 2025-2026 Justus Henneberg, Rosina Kharal
-// SPDX-License-Identifier: GPL-3.0-or-later
-// =============================================================================
+ =============================================================================
+ Authors:       Justus Henneberg, Rosina Kharal
+ Copyright (c) 2025-2026 Justus Henneberg, Rosina Kharal
+ SPDX-License-Identifier: GPL-3.0-or-later
+ =============================================================================
 ```
 ```

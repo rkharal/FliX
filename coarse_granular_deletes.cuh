@@ -249,21 +249,6 @@ void process_deletes_tombstones(key_type maxkey, smallsize minindex, smallsize m
    // const key_type *maxbuf = static_cast<const key_type *>(launch_params->maxvalues);
 
 
-/*
-    //print all max values in the maxbuf
-    if (tid == 0) {
-       printf("Tid: %d, PRINTING MAX VALUES TOP OF DEL TOMB\n", tid);
-       for (int i = 0; i < partition_count_with_overflow; i++) {
-         printf("Tid: %d, maxbuf[%d] %llu\n", tid, i, maxbuf[i]);
-     }
-    }
-
- */
-
-	
-	//smallsize returnval = 0;  //0 not inserted was present
-							  //1 successfully inserted
-							  //2 error of some type occured
    
     smallsize lastposition_bytes = get_lastposition_bytes<key_type>(node_size);
 	//auto buf = launch_params->ordered_node_pairs;
@@ -326,20 +311,7 @@ void process_deletes_tombstones(key_type maxkey, smallsize minindex, smallsize m
 			curr_max = cg::extract<key_type>(curr_node, 0);
 		}
 
-     //  DEBUG_PD_TB("DEL B4 BS Tid:", idx, key, curr_max, last_position_value);	
-
-
-        
-		//printf("PU: B4 BS Tid: %d Reached the correct node with key: %llu and max:  %llu and last_position_value %llu \n", tid, key, curr_max, last_position_value);	
-
-       // if( key ==3280486733) {
-            
-       //   if( key ==3879510667) DEBUG_PD_TB("PU: Tid:  Going to look for key: in Linear Search ", tid, key, curr_max);
-        //    print_node<key_type>(curr_node, node_size);
-
-       // }
-
-        smallsize curr_size= cg::extract<smallsize>(curr_node, sizeof(key_type));
+          smallsize curr_size= cg::extract<smallsize>(curr_node, sizeof(key_type));
         if (curr_size > 0) {
              //found = binary_search_in_cuda_buffer_with_tombstones<key_type>(curr_node, curr_size, key, insert_index, tid);
              found = linear_search_in_cuda_buffer_with_tombstones_full<key_type>(curr_node, curr_size, node_size, key, insert_index, tid);
@@ -388,13 +360,6 @@ void process_deletes_tombstones(key_type maxkey, smallsize minindex, smallsize m
 #endif
    
 
-      // print all max values in the maxbuf
-   // if (tid == 0) {
-     //   printf("Tid: %d, PRINTING MAX VALUES TOP OF DEL TOMB\n", tid);
-       // for (int i = 0; i < partition_count_with_overflow; i++) {
-         //   printf("Tid: %d, maxbuf[%d] %llu\n", tid, i, maxbuf[i]);
-       // }
-   // }
 }
 //}
 #endif

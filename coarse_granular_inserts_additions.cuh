@@ -1,7 +1,9 @@
 // =============================================================================
 // File: coarse_granular_inserts_additions.cuh
 // Author: Rosina Kharal
-// Description: Implements coarse_granular_inserts_additions
+// Description: Implements coarse_granular_inserts_additions - this is the first file we added for the inserts additions, 
+// it includes the split_curr_node function and process_inserts_per_bucket_tombstones function which are called in the combined kernel.
+// This file also contains variations of insertion functions that were used for testing, but are not called in the final version of FliX.
 // Copyright (c) 2025 Justus Henneberg, Rosina Kharal
 // SPDX-License-Identifier: GPL-3.0-or-later
 // =============================================================================
@@ -242,24 +244,7 @@ DEVICEQUALIFIER void process_inserts_per_bucket_tombstones(key_type maxkey, smal
             insert_count++;
         }
 
-        // Debugging: print the final state of keys_array and offsets_array
-        /*
-
-         if (tid == 5)
-         {
-             printf("TID %d: Final state of keys and offsets before copy:\n", tid);
-             print_node<key_type>(curr_node, node_size);
-             for (smallsize m = 0; m < node_size; ++m)
-             {
-                 DEBUG_PI_BUCKET("Final Keys/Offsets", tid, keys_array[m], offsets_array[m]);
-             }
-         }
-
-        */
-
-        // Copy the arrays back to curr_node
-        // assert (j <= node_size);
-        // if(j >= node_size) printf("ERROR in J : Tid: %d, curr_max %u, curr_size %u j= %d \n", tid, curr_max, curr_size, j);
+      
         copy_arrays_to_node<key_type>(curr_node, keys_array, offsets_array, j, node_size, launch_params, tid);
 
         k = update_idx;
@@ -809,18 +794,7 @@ DEVICEQUALIFIER void copy_arrays_to_node_localmem(
     void *curr_node, key_type *local_keys, smallsize *local_offsets, smallsize num_elements,
     smallsize node_size, smallsize tomb_stone_count, updatable_cg_params *launch_params, bool completed_inserts, int tid)
 {
-    // Check if a split is required. If so, split the node into two nodes and place keys in the correct node.
-    // Copy all the keys and offsets from local memory into curr_node and possibly a next_node.
-    // Update the size of curr_node if no split is required.
-    // if (num_elements > node_size)
-
-    /* assert (num_elements <= node_size);
-     if (num_elements > node_size)
-     {
-         ERROR_INSERTS("ERROR: NUM ELEMENTS EXCEEDS NODE SIZE", tid, num_elements, node_size);
-         return;
-     }
-     */
+   
 
    // printf("TID: %d, CHECK SPLIT: num elements %u, completed_inserts %d\n", tid, num_elements, completed_inserts);
 
@@ -1231,13 +1205,7 @@ DEVICEQUALIFIER void process_inserts_single_thread(
                 //if (curr_size >= (node_size - 2))      //hybrid1 ** USE THIS ONE
             smallsize node_max_fill_state = SDIV(node_size*node_threshold,100);  // variable argument at command line 
             smallsize min_remaining_to_insert = min_keys_insert;
-            //if (curr_size >= (node_size - 4))     //hybrid2
-            //if  (curr_size > (node_size / 2)+2)   //hybrid3
-            //if(bulk_insertion_condition)
-            // if (num_left_to_insert <= 3)         //hybrid4
-         //  if (next_insert_key ==2658754282)printf("tid %d: NT %u MinKey %u. \n ", tid,node_max_fill_state, min_remaining_to_insert);
-         //  if (next_insert_key ==2658754282)printf("tid %d: NumLefttoInsert %u currsize %u. \n ", tid,num_left_to_insert, curr_size);
-
+         
             // ---  2 PARAM:   if ( all_shift_insertions || (hybrid && ((curr_size >= node_max_fill_state) || (num_left_to_insert <=min_remaining_to_insert) )  ))       //hybrid5
             if ( all_shift_insertions || (hybrid && (num_left_to_insert <=min_remaining_to_insert) )  )       //hybrid5
             //  if ( (curr_size > (node_size / 2)+2) || (num_left_to_insert <=3) )  //hybrid6
@@ -1562,14 +1530,7 @@ DEVICEQUALIFIER void process_inserts_per_bucket_tombstones_localmem_hybrid(
         }
 
 
-       // AFTER WHILE LOOP
-        // Print keys and offsets pair by pair
-        //printf("TID %d: After For Loop, j = %u, node_size = %u, insert_count = %u, init_size = %u \n", tid, j, node_size, insert_count, init_size);
-           //     for (int idx = 0; idx < j; ++idx)
-           //     {
-            //        printf("TID %d: local_keys[%d] = %u, local_offsets[%d] = %u \n", tid, idx, (unsigned int)local_keys[idx], idx, (unsigned int)local_offsets[idx]);
-            //    }
-
+     
 
         while ((insert_count + init_size < node_size) && update_idx <= maxindex && update_list[update_idx] <= curr_max && j < node_size)
         {
@@ -1585,28 +1546,7 @@ DEVICEQUALIFIER void process_inserts_per_bucket_tombstones_localmem_hybrid(
             insert_count++;
         }
 
-       // bool complete_inserts = (update_idx > maxindex);
-        // printf("TID: %d, Bottom of While Loop: tid %d complete inserts %d update_idx %d \n", tid, complete_inserts, update_idx);
-
-        // if ((insert_count == 0 ) && (init_size == node_size))
-        // {
-        //     split_curr_node<key_type>(curr_node, launch_params, tid);
-        // }
-        // else
-        /* **********
-        if (insert_count > 0)
-        {
-            DEBUG_PI_BUCKET("Going to Copy", tid, j, node_size);
-            DEBUG_PI_BUCKET("Going to Copy", complete_inserts, ts_count);
-            // Print keys and offsets pair by pair
-              //  for (int idx = 0; idx < j; ++idx)
-              //  {
-              //      printf("TID %d: local_keys[%d] = %u, local_offsets[%d] = %u \n", tid, idx, (unsigned int)local_keys[idx], idx, (unsigned int)local_offsets[idx]);
-              //  }
-            copy_arrays_to_node_localmem<key_type>(curr_node, local_keys, local_offsets, j, node_size, ts_count, launch_params, complete_inserts, tid);
-        }
-            ************* */
-
+      
          bool complete_inserts = (update_idx > maxindex);
 
         if ((insert_count == 0) && (init_size == node_size))

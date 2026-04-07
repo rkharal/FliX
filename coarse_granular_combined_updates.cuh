@@ -2,6 +2,8 @@
 // File: coarse_granular_combined_updates.cuh
 // Author: Rosina Kharal
 // Description: Implements coarse_granular_combined_updates
+//              Testing a combined kernel for inserts and deletes in FliX.
+//              This is a prototype for testing and debugging, not optimized for performance.
 // Copyright (c) 2025 Justus Henneberg, Rosina Kharal
 // SPDX-License-Identifier: GPL-3.0-or-later
 // =============================================================================
