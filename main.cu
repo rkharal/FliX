@@ -9,7 +9,7 @@
 #include "benchmarks.cuh"
 #include "benchmarks_updates.cuh"
 #include "benchmarks_lookups.cuh"
-#include "optix_wrapper.cuh"
+//#include "optix_wrapper.cuh"
 #include "result_collector.h"
 #include "impl_binsearch.cuh"
 #include "impl_hashtable_warpcore.cuh"
@@ -26,7 +26,7 @@
 #include <thrust/execution_policy.h>
 #include "definitions_updates.cuh"
 
-optix_wrapper optix;
+//optix_wrapper optix;
 const char* cache_directory = nullptr;
 
 

@@ -1242,12 +1242,6 @@ void benchmark_updates(
             std::cerr << "    " << key << ": " << value << std::endl;
         }
 
-        /*
-        /---- gen input. //
-        std::vector<key_type> generated_keys;
-        generate_keys(key_generation_size, min_usable_key<key_type>(), max_usable_key<key_type>(), generated_keys);
-        //generate_keys_zipf(key_generation_size, min_usable_key<key_type>(), max_usable_key<key_type>(), generated_keys);
-        */
 
 #ifdef REGKEYGEN
 #pragma message "Regular key generation"

@@ -66,6 +66,7 @@ struct tree_metadata {
 // #define BUCKET_INSERTS
 #define OPTIMIZATION_ON // Optimization for maxvalues to minimize # of rays fired/search
 extern "C" char coarse_granular_embedded_updates_ptx_code[];
+
 extern optix_wrapper optix;
 
 //--------------- STATIC TREE BUILD ---------------
