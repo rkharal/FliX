@@ -5,21 +5,51 @@ This repository contains the source code and experimental framework for the pape
 
 FliX is a high-performance GPU-resident indexing structure designed to support fast queries and updates.
 
-## Project Structure
+## Project/Code Structure
 
-The codebase is organized into several main modules, including the FliX implementation and multiple baselines used for performance comparison:
-The following 'Index Types' are tested in our work:
+The codebase follows a simple benchmark-driven structure:
+
+```text
+main.cu
+└── calls benchmark_updates
+    ├── runs one benchmark configuration
+    ├── uses one data structure at a time
+    │   └── selected at compile time
+    ├── creates an instance of the selected index
+    │   ├── FliX       -> impl_cg_rtx_index_updates.cuh
+    │   ├── LSMu       -> impl_lsm_tree.cuh
+    │   ├── GPU-BTree  -> impl_tree_awad.cuh
+    │   ├── SlabHash   -> impl_hashtable_slab.cuh
+    │   └── WarpCore   -> impl_hashtable_warpcore.cuh
+    └── executes benchmark operations
+        ├── index.insert
+        ├── index.remove
+        ├── index.lookup
+        ├── index.successor   (FliX and LSMu only)
+        └── index.rebuild     (FliX only)
+
+ The benchmark entry point is main.cu, which calls benchmark_updates to execute benchmark experiments. Each experiment uses one data structure at a time, selected at compile time. To evaluate all supported data structures, the scripts in runscripts_experiments/ run the benchmarks repeatedly, one structure at a time.
+
+Within benchmark_updates, an instance of the selected index is created. The implementation file depends on the chosen data structure:
+
+-FliX: impl_cg_rtx_index_updates.cuh
+-LSMu: impl_lsm_tree.cuh
+-GPU-BTree: impl_tree_awad.cuh
+-SlabHash: impl_hashtable_slab.cuh
+-WarpCore: impl_hashtable_warpcore.cuh
+
+The benchmark framework then invokes the supported operations on the index. All benchmarked structures support index.insert, index.remove, and index.lookup. In addition, index.successor is supported by FliX and LSMu, while index.rebuild is supported only by FliX.
+
+## Benchmarked Data Structures
+
+
+The following 'Index Types' are tested in our experiments. If you use these baselines, please cite the original works.
 
 - `cg_rtx_index_updates`: implementation of FliX, our coarse-granular index structure optimized for GPU hardware
 - `lsm_tree_ashkiani`: LSMu, our optimized variant of the GPU Log-Structured Merge-tree
 - `tree_awad`: a high-performance GPU B-Tree implementation
 - `hashtable_slab`: the SlabHash dynamic hash table
 - `hashtable_warpcore`: the WarpCore hash table library
-- `runscripts_experiments/`: Bash scripts to automate benchmark execution and reproduce the figures and graphs presented in the paper
-
-## Benchmarked Data Structures
-
-FliX is benchmarked against the following GPU-resident indexing data structures. If you use these baselines, please cite the original works.
 
 | Index Type | Reference | Link |
 | :--- | :--- | :--- |
@@ -54,8 +84,7 @@ The project uses a unified entry point in `main.cu`, which invokes the `benchmar
 To reproduce the experimental results from the paper:
 
 1. Navigate to the `runscripts_experiments` directory.
-2. Execute the desired Bash script, such as `./run_throughput_test.sh`.
-3. Results will be written to the designated directories for later visualization.
+2. Results will be written to the designated directories for later visualization.
 
 ## runscripts and plotting scrips
 
