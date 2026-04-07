@@ -2,6 +2,9 @@
 // File: debug_definitions_updates.cuh
 // Author: Rosina Kharal
 // Description: Implements debug_definitions_updates     
+//             Debugging macros for updates in FliX, used for testing and debugging the implementation of updates, lookups, and rebuilds in FliX. 
+//             These macros can be enabled or disabled by defining or undefining the corresponding preprocessor directives at the top of the file.
+//             This print statements show output in the codebase for host or device side debugging, and are used for testing and debugging.  
 // Copyright (c) 2025 Justus Henneberg, Rosina Kharal
 // SPDX-License-Identifier: GPL-3.0-or-later
 // =============================================================================
