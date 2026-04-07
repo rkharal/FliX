@@ -94,7 +94,7 @@ To reproduce the experimental results from the paper:
 
 ```cpp
 // =============================================================================
-// Author:       Rosina Kharal
+// Authors:       Justus Henneberg, Rosina Kharal
 // Copyright (c) 2025-2026 Justus Henneberg, Rosina Kharal
 // SPDX-License-Identifier: GPL-3.0-or-later
 // =============================================================================
