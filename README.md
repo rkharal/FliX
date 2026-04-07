@@ -21,6 +21,7 @@ FliX is a high-performance GPU-resident indexing structure designed to support f
 
 The codebase follows a simple benchmark-driven structure:
 
+```
 main.cu
 └── calls benchmark_updates
     ├── runs one benchmark configuration
@@ -39,7 +40,7 @@ main.cu
         ├── index.successor   (FliX and LSMu only)
         └── index.rebuild     (FliX only)
 
-
+'''
 
 The benchmark entry point is `main.cu`, which calls `benchmark_updates` to execute benchmark experiments. Each experiment uses one data structure at a time, selected at compile time. Within `benchmark_updates`, an instance of the selected index is created based on the chosen implementation. To evaluate all supported data structures, the scripts in `runscripts_experiments/` run the benchmarks repeatedly, one structure at a time.
 
