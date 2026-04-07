@@ -37,7 +37,7 @@ main.cu
         └── index.rebuild   (FliX only)
 ```
 
-The scripts in `runscripts_experiments/` automate the process of recompiling and running the benchmark for each structure sequentially to generate a complete comparison dataset.
+The scripts in `runscripts_experiments/` automate the process of recompiling and running the benchmark for each structure sequentially to generate comparisons and output files for each.
 
 ## Benchmarked Data Structures
 
