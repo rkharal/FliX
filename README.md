@@ -1,5 +1,3 @@
-
-```markdown
 # FliX: Flipped-Indexing for Scalable GPU Queries and Updates
 
 This repository contains the source code and experimental framework for the paper:  
@@ -47,7 +45,7 @@ If you use these baselines in your research, please cite the original publicatio
 
 | Index Type | Reference | Link |
 | :--- | :--- | :--- |
-| **FliX** | *FliX: Flipped-Indexing for Scalable GPU Queries and Updates* | [Preprint](https://arxiv.org/abs/2304.04169) |
+| **FliX** | *FliX: Flipped-Indexing for Scalable GPU Queries and Updates* | TBD |
 | **LSMu** | Ashkiani et al., *GPU LSM: A Dynamic Dictionary Data Structure for the GPU* | [DOI](https://ieeexplore.ieee.org/document/8425197) |
 | **GPU-BTree** | Awad et al., *Engineering a High-Performance GPU B-Tree* | [DOI](https://dl.acm.org/doi/10.1145/3293883.3295706) |
 | **Hash_Slab** | Ashkiani et al., *A Dynamic Hash Table for the GPU* | [DOI](https://doi.org/10.1109/IPDPS.2018.00052) |
@@ -72,10 +70,10 @@ If you use these baselines in your research, please cite the original publicatio
 To reproduce the experimental results from the paper:
 
 1. Navigate to the `runscripts_experiments` directory.
-2. Run the desired benchmark script (e.g., `./run_all_benchmarks.sh`).
+2. Run the desired benchmark scripts
 3. Results will be saved to the `results/` directory for visualization.
 
-> **Note:** Plotting scripts and additional run configurations are currently being integrated into the repository. Please check back for updates as we finalize the submission artifacts.
+> **Note:** Plotting scripts and additional run configurations are currently being integrated into the repository. Please check back for updates as we finalize the repo.
 
 ## License and Attribution
 
