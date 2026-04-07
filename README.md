@@ -2,7 +2,11 @@
 # FliX: Flipped-Indexing for Scalable GPU Queries and Updates
 
 This repository contains the source code and experimental framework for the paper  
-*FliX: Flipped-Indexing for Scalable GPU Queries and Updates.*
+**FliX: Flipped-Indexing for Scalable GPU Queries and Updates.**
+
+## Source Files:
+- Updating the Repo is in progress.
+- Please see *Run Scripts* and *Plotting Scripts* below
 
 ## Authors
 
