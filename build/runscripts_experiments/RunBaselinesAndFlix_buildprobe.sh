@@ -74,7 +74,7 @@ echo "MaxNode=$MaxNode"
 echo "TileSize=$TileSize"
 echo "NodeCacheString=$NodeCacheString"
 echo "=================================================="
-TARGET_DIR="KEEPImportantFIles/VaryBuildandProbeSizes/SortedLookups/"
+TARGET_DIR="Baseline_Experiments/VaryBuildandProbeSizes/"
 
 #TARGET_DIR="KEEPImportantFIles/100MBuild100MProbe/FliXSkewCompare/Baselines"
 mkdir -p "$TARGET_DIR"

@@ -1171,30 +1171,47 @@ void benchmark_updates(
 
         rti_assert(tc.probe_size_log >= tc.build_size_log);
 
+        /* 
         // -------------- TEMPORARAY MANUAL OVERRIDE FOR TESTING: BUILD_SIZE and PROBE_SIZE
         // --> Adjust
         size_t build_size = ( size_t{1} << tc.build_size_log ); //------->  + 333; // + 100;
         //size_t build_size = 99999999 + 6; //100000005;
         std::cerr << " Build Size at top of File " << build_size << " free memory: " <<    free_memory_bytes << " total mem: " << total_memory_bytes << std::endl;
-
         // size_t build_size = (size_t{1} << tc.build_size_log); // + 100;
-
         // size_t build_size = (size_t{1} << tc.build_size_log) ; // + 100;
         // cudaSetDevice(0);
         // cudaFree(0); // forces CUDA context init on this thread
-
         //------------- size_t build_size = 99999999 + 3; //100000005;
         // tc.build_size_log = static_cast<size_t>(std::log2(build_size));
-       
+    
         size_t key_generation_size = build_size * (100 + tc.total_inserts_percentage_of_build_size) / 100;
-        
-         // -------------- TEMPORARAY MANUAL OVERRIDE FOR TESTING
-        //--> Adjust
-         //size_t probe_size = ( size_t{1} << tc.probe_size_log); // ------>  + 111;
         // --- 100M size_t probe_size = 99999999 +2; 
         size_t probe_size = (size_t{1} << tc.probe_size_log);
+        
+        // ----------------- END TEMPORARY OVERRIDE -----------------
+        */
 
-         //   ------------- END OVERRIDE ----------------
+
+        #ifdef OVERRIDE_TO_100MILLION
+        #pragma message "OVERRIDE_TO_100MILLION is ON: Using build_size=100M and probe_size =100M for all tests, ignoring config logs"
+
+            const size_t NinetyNineMillion = 99999999;
+            const size_t constant_above_99M = 6; // to ensure we are above 99M, which seems to be a critical point for some implementations 
+            size_t build_size = NinetyNineMillion + constant_above_99M  ;   
+            std::cerr << " Build Size at top of File " << build_size << " free memory: " <<    free_memory_bytes << " total mem: " << total_memory_bytes << std::endl;
+            size_t key_generation_size = build_size * (100 + tc.total_inserts_percentage_of_build_size) / 100;
+            size_t probe_size = NinetyNineMillion +2; 
+
+        #else
+        #pragma message "OVERRIDE_TO_100MILLION is OFF: Using build_size_log and probe_size_log from config"
+
+            size_t build_size = ( size_t{1} << tc.build_size_log ); 
+            std::cerr << " Build Size at top of File " << build_size << " free memory: " <<    free_memory_bytes << " total mem: " << total_memory_bytes << std::endl;
+            size_t key_generation_size = build_size * (100 + tc.total_inserts_percentage_of_build_size) / 100;
+            size_t probe_size = (size_t{1} << tc.probe_size_log);
+
+
+        #endif
 
 
         size_t insert_batch_size = build_size * tc.total_inserts_percentage_of_build_size / (100 * tc.batch_count);
