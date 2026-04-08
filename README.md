@@ -3,7 +3,7 @@
 This repository contains the source code and experimental framework for the paper:  
 **_FliX: Flipped-Indexing for Scalable GPU Queries and Updates_**
 
-FliX is a high-performance GPU-resident indexing structure designed to support high-velocity concurrent updates alongside fast point and range queries.
+FliX is a high-performance GPU-resident indexing structure designed to support high-speed concurrent updates alongside fast point and range queries.
 
 ## Authors
 
@@ -12,7 +12,13 @@ FliX is a high-performance GPU-resident indexing structure designed to support h
 * **Trevor Brown** — University of Waterloo, Canada
 * **Felix Schuhknecht** — Johannes Gutenberg University of  Mainz, Germany
 
----
+## Previous Work
+
+This code base builds on the original work of Justus Henneberg from the **Coarse-Granular RTIndeX** (_cgRX_) repository:
+
+https://gitlab.rlp.net/juhenneb/coarse-granular-rtindex
+
+The current repository extends that earlier foundation of **cgRX** with the **FliX** implementation, additional benchmark support, new baselines, and updated experiments.
 
 ## Project & Code Structure
 

@@ -9,6 +9,10 @@ build/*
 !build/runscripts_experiments/
 !build/runscripts_experiments/**
 
+# Keep this directory in the repo
+!build/sample_output/
+!build/sample_output/**
+
 backup_long_versions_for_paper/
 
 # Ignore 
