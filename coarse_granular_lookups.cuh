@@ -44,18 +44,7 @@ bool binary_search_equal_or_greater(const key_type* maxvalues, smallsize num_ele
 
     found_index = left;
 
-     // --> here
-     /*
-     if (key == 3200461485) {
-        printf("Key: %u, Found Index: %u, Num Elements: %u\n", key, found_index, num_elements);
-        printf("Maxvalues List: ");
-        for (smallsize i = 0; i < num_elements; ++i) {
-            printf("%u ", maxvalues[i]);
-        }
-        printf("\n");
-    }
 
-    */
     // Case: key > all elements
     if (found_index == num_elements-1) {
         //printf("Search key %u not found, found_index %u, num_elements %u key at found_index %u \n", key, found_index, num_elements, maxvalues[found_index]);
@@ -66,9 +55,6 @@ bool binary_search_equal_or_greater(const key_type* maxvalues, smallsize num_ele
 }
 
 //----------------------------------------
-//
-//
-//
 //  Binary Search in CUDA Buffer for MAXVALUES
 //----------------------------------------------
 
@@ -128,9 +114,6 @@ bool binary_search_in_array_old(const key_type* maxvalues, smallsize num_element
         return false;
     }
 
-     //print "not found it" , print above values
-     if (key ==2249298376 )printf("Exiting Not Found It Tid: %d, key %u, found_index %d, key not found in maxvalues \n", tid, key, found_index);
-    /// ERROR ----> found_index = found_index - 1;
     found_index = found_index;
     return false;
 }
@@ -182,11 +165,6 @@ DEVICEQUALIFIER void process_lookups(key_type curr_node_max, smallsize bucket_in
     smallsize curr_size = cg::extract<smallsize>(curr_node, sizeof(key_type));
 
 
-  //  if (probe_key ==2249298376) {
-  //      DEBUG_LOOKUP_DEV("Going to look for key", tid, probe_key);
-  //      print_node<key_type>(curr_node, node_size);
-
-  //  }
 
 
     smallsize found_index = 1;
@@ -236,18 +214,7 @@ DEVICEQUALIFIER INLINEQUALIFIER
 smallsize find_bucket_offset_for_probekey(key_type probe_key, const smallsize partition_count_with_overflow, const key_type* maxbuf) {
 
     smallsize final_bucket_offset = 0;
-    /*
-    // Ensure partition_offset is within valid range
-    if (partition_offset < 0) {
-        partition_offset = 0;
-        printf("ERROR: Partition Offset is less than 0, setting to 0 \n");
-        return partition_offset;
-    } else if (partition_offset >= partition_count_with_overflow) {
-        partition_offset = partition_count_with_overflow - 1;
-        printf("ERROR: Partition Offset is greater than Overflow, setting to Overflow node \n");
-        return partition_offset;
-    }
-  */
+   
     // Extract max value at partition_offset
     key_type max_value_at_offset = maxbuf[final_bucket_offset];
     //if the probe_key is correctly less than the max value at the offset, return the partition offset. 
@@ -335,12 +302,7 @@ DEVICEQUALIFIER void process_group_lookups(key_type curr_node_max, smallsize buc
         }
         smallsize curr_size = cg::extract<smallsize>(curr_node, sizeof(key_type));
 
-//#ifdef LOOKUP_KERNEL_DEBUG
-       // if (next_probe_key == 641317930) {
-          //  printf("GOING FOR SEARCH -Process Lookups: Tid: %d, Going to look for key: %u in Binary Search, Node max is: %u and node size is %u \n", tid, next_probe_key, curr_max, curr_size);
-           // print_node<key_type>(curr_node, partition_size);
-       // }
-//#endif
+
         smallsize found_index = 1;
         bool probe_key_found = binary_search_in_cuda_buffer<key_type>(curr_node, curr_size, next_probe_key, found_index, ix);
         //if (next_probe_key == 641317930) {
@@ -457,12 +419,7 @@ DEVICEQUALIFIER void process_group_lookups_opt_duplicates(key_type curr_node_max
         }
         smallsize curr_size = cg::extract<smallsize>(curr_node, sizeof(key_type));
         
-//#ifdef LOOKUP_KERNEL_DEBUG
-       // if (next_probe_key == 641317930) {
-          //  printf("GOING FOR SEARCH -Process Lookups: Tid: %d, Going to look for key: %u in Binary Search, Node max is: %u and node size is %u \n", tid, next_probe_key, curr_max, curr_size);
-           // print_node<key_type>(curr_node, partition_size);
-       // }
-//#endif
+
         smallsize found_index = 1;
         bool probe_key_found = binary_search_in_cuda_buffer<key_type>(curr_node, curr_size, next_probe_key, found_index, ix);
         //if (next_probe_key == 641317930) {

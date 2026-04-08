@@ -2,6 +2,7 @@
 // File: coarse_granular_inserts_tiles_bulk.cuh
 // Author: Rosina Kharal
 // Description: Implements coarse_granular_inserts_tiles_bulk
+//              Primary files for tiled Bulk Insertions in FliX
 //              Different versions of functions exist - used in testing and optimizing the functions for the final version of FliX. 
 // =============================================================================
 

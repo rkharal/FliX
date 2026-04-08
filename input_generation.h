@@ -50,7 +50,7 @@ void generate_keys_hybrid_dense_file2(
     size_t y = percentage_new_keys_from_dense_region;
 
      //printf("Calculated Range for x: %u Percent of distribution Length of Range per batch: %u, MINkey %u and MAXkey %u \n", x, range, min_usable_key, max_usable_key);
-    printf("Not Shifted Dense Range: Same Dense Range Always x: %u Percent of distributio receives y: %u of the insert keys per batch \n", x, y);
+    printf("Non Shifting Dense Range (Same Dense Range Always) X: %u Percent of distribution receives Y: %u of the insert keys per batch \n", x, y);
    
 
     // ---------------------------CHECK FOR EXISTING CACHE---------------------------
@@ -101,7 +101,7 @@ void generate_keys_hybrid_dense_file2(
     key_type lower_bound_dense_region = min_usable_key;
     key_type top_range_dense_region = min_usable_key + range;
 
-     printf("Calculated Range for x: %u Percent of distribution Length of Range per batch: %u, MINkey %u and MAXkey %u \n", x, range, min_usable_key, max_usable_key);
+     printf("Calculated Range for x: %u Percent of distribution Length of Range per batch: %u, Minkey %u and Maxkey %u \n", x, range, min_usable_key, max_usable_key);
     printf("x: %u Percent of distributio receives y: %u of the insert keys per batch \n", x, y);
    
 

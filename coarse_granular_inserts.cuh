@@ -2,6 +2,7 @@
 // File: coarse_granular_inserts.cuh
 // Author: Rosina Kharal
 // Description: Implements coarse_granular_inserts
+//              Single Threaded Shift_Right Insertions
 // Copyright (c) 2025 Justus Henneberg, Rosina Kharal
 // SPDX-License-Identifier: GPL-3.0-or-later
 // =============================================================================

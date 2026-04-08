@@ -2,6 +2,7 @@
 // File: coarse_granular_inserts_tiles.cuh
 // Author: Rosina Kharal
 // Description: Implements coarse_granular_inserts_tiles
+//              One of the primary files for tiled insertions in FliX 
 // Copyright (c) 2025 Justus Henneberg, Rosina Kharal
 // SPDX-License-Identifier: GPL-3.0-or-later
 // =============================================================================
@@ -860,7 +861,7 @@ GLOBALQUALIFIER void update_kernel_tile(updatable_cg_params *launch_params, cons
 }
 
 
-
+// removed merged insert - delete kernels 
 template <typename key_type>
 GLOBALQUALIFIER void update_kernel_tile_deletes(updatable_cg_params *launch_params)
 {

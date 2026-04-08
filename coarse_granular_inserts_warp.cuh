@@ -2,6 +2,7 @@
 // File: coarse_granular_inserts_warp.cuh
 // Author: Rosina Kharal
 // Description: Implements coarse_granular_inserts_warp
+//              Testing purposes
 // Copyright (c) 2025 Justus Henneberg, Rosina Kharal
 // SPDX-License-Identifier: GPL-3.0-or-later
 // =============================================================================

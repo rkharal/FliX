@@ -12,13 +12,7 @@
 #include "coarse_granular_inserts.cuh"
 #include <cuda_runtime.h>
 #include <iostream>
-//#include "cuda_buffer.h"
-//#include "impl_cg_rtx_index_updates.cuh"
 
-//template <typename key_type>
-//void find_maxvalues(cuda_buffer<key_type> &maxvalues_buffer, cuda_buffer<uint8_t> &ordered_node_pairs_buffer, size_t partition_count_with_overflow, smallsize node_stride);
-
-    
 // Kernel to count total keys per bucket
 
 template <typename key_type>
@@ -291,14 +285,6 @@ void launch_count_nodes_per_bucket(
     int threadsPerBlock = MAXBLOCKSIZE;
     int numBlocks = (partition_count_with_overflow + threadsPerBlock - 1) / threadsPerBlock;
 
-    // Launch the kernel
-   /*  count_nodes_per_bucket_kernel<key_type><<<numBlocks, threadsPerBlock>>>(
-        node_buffer, allocation_buffer, node_size, node_stride,
-        allocation_buffer_count,  // Ensure this is the correct count
-        partition_count_with_overflow, d_nodes_per_bucket.ptr());
-    */
-
-
      count_nodes_per_bucket_nonzero_nodes_kernel<key_type><<<numBlocks, threadsPerBlock>>>(
      //count_nodes_per_bucket_kernel<key_type><<<numBlocks, threadsPerBlock>>>(
         node_buffer, allocation_buffer, node_size, node_stride,
@@ -395,10 +381,7 @@ for (smallsize i = 0; i < node_count_for_this_partition; i++)
         }
         linked_ptr_curr_node--; // Adjust for +1 offset in storage
         curr_node = reinterpret_cast<uint8_t *>(allocation_buffer) + linked_ptr_curr_node * node_stride;
-        //rep_node += node_stride;    
-        //auto rep_node = reinterpret_cast<uint8_t *>(representative_temp_buffer) + (prefix_sum_value) * node_stride;
-        //auto curr_node = reinterpret_cast<uint8_t *>(node_buffer) + tid * node_stride;
-
+       
 
 
     }
@@ -500,7 +483,7 @@ smallsize rebuild_gpu_structures(
 
 
 //--------------------------------- OLD KERNELS ---------------------------------
-
+/*
 template <typename key_type>
 GLOBALQUALIFIER void rebuild_kernel_old(void *node_buffer, void *representative_temp_buffer, void *allocation_buffer, smallsize node_size, smallsize node_stride, smallsize partition_count_with_overflow, smallsize total_nodes)
 {
@@ -509,7 +492,7 @@ GLOBALQUALIFIER void rebuild_kernel_old(void *node_buffer, void *representative_
     if (tid >= total_nodes)
         return;
 
-/* 
+
     smallsize total_nodes = partition_count_with_overflow - 1; // total nodes not including the overflow node
     smallsize key_offset_bytes = compute_key_offset_bytes<key_type>();
     smallsize my_node = tid / initial_num_keys_each_node; // which node this tid belongs to
@@ -667,30 +650,10 @@ for (smallsize m = 0; m <= node_size; ) {  // No ++m in loop header
     m++;  // Increment manually
 }
 
-    */
+    
 }
+
+*/
 
 #endif
 
-/*
-
- // Copy the node
-        //we copy the full node_size bc we should have tombstone present
-        smallsize c ,r = 0;
-        while( c <= node_size)
-        {
-            key_type key = extract_key_node<key_type>(curr_node, c);
-            smallsize offset = extract_offset_node<key_type>(curr_node, c);
-            // check for tombstones and ignore. size of node should still be accurate
-            // we are removing all unnecessary tombstones
-            if (key == 1 && offset == 0){
-                c++;                
-                continue;
-            }
-                
-            set_key_node<key_type>(rep_node, r, key);
-            set_offset_node<key_type>(rep_node, r, offset);
-            c++; r++;
-        }
-
-        */

@@ -1198,7 +1198,7 @@ void benchmark_updates(
             const size_t NinetyNineMillion = 99999999;
             const size_t constant_above_99M = 6; // to ensure we are above 99M, which seems to be a critical point for some implementations 
             size_t build_size = NinetyNineMillion + constant_above_99M  ;   
-            std::cerr << " Build Size at top of File " << build_size << " free memory: " <<    free_memory_bytes << " total mem: " << total_memory_bytes << std::endl;
+            std::cerr << " --> Build Size at top of File " << build_size << " free memory: " <<    free_memory_bytes << " total mem: " << total_memory_bytes << std::endl;
             size_t key_generation_size = build_size * (100 + tc.total_inserts_percentage_of_build_size) / 100;
             size_t probe_size = NinetyNineMillion +2; 
 
@@ -1206,7 +1206,7 @@ void benchmark_updates(
         #pragma message "OVERRIDE_TO_100MILLION is OFF: Using build_size_log and probe_size_log from config"
 
             size_t build_size = ( size_t{1} << tc.build_size_log ); 
-            std::cerr << " Build Size at top of File " << build_size << " free memory: " <<    free_memory_bytes << " total mem: " << total_memory_bytes << std::endl;
+            std::cerr << " --> Build Size defined at Top of File " << build_size << " Free memory: " <<    free_memory_bytes << " Total mem: " << total_memory_bytes << std::endl;
             size_t key_generation_size = build_size * (100 + tc.total_inserts_percentage_of_build_size) / 100;
             size_t probe_size = (size_t{1} << tc.probe_size_log);
 

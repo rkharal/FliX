@@ -2,6 +2,9 @@
 // File: impl_cg_rtx_index_updates.cuh
 // Author: Rosina Kharal
 // Description: Implements impl_cg_rtx_index_updates     
+//              Previous implementations of FliX include a ray tracing index layer, or a static tree index layer
+//              Support for all version of FliX exist in this file. 
+//              
 // Copyright (c) 2025 Justus Henneberg, Rosina Kharal
 // SPDX-License-Identifier: GPL-3.0-or-later
 // =============================================================================
@@ -33,19 +36,6 @@
 
 namespace mem = memory_layout;
 
-/*
-// static tree build struct
-struct tree_metadata {
-    constexpr static smallsize max_level_count = 14;
-
-    smallsize level_count;
-    smallsize total_nodes;
-    // level 0 is the topmost level
-    std::array<smallsize, max_level_count> nodes_on_level;
-}; */
-
-
-
 #ifdef REBUILD_GROUPS
 #pragma message "Rebuild Groups include File=YES"
 #include "coarse_granular_rebuild_groups.cuh"
@@ -55,15 +45,7 @@ struct tree_metadata {
 #include "coarse_granular_rebuild.cuh"
 #endif
 
-// constexpr int TILE_SIZE = 32;
-// constexpr int WARP_SIZE = 32;
-//
-// #define STRINGIFY(x) #x
-// #define TOSTRING(x) STRINGIFY(x)
 
-// #pragma message("VALUE OFDIV_FACTOR=" TOSTRING(DIV))
-
-// #define BUCKET_INSERTS
 #define OPTIMIZATION_ON // Optimization for maxvalues to minimize # of rays fired/search
 extern "C" char coarse_granular_embedded_updates_ptx_code[];
 
@@ -307,6 +289,8 @@ void find_minmax_function(
     CUERR
 }
 
+
+//Single Threaded Insertions
 template <typename key_type>
 GLOBALQUALIFIER void update_kernel(const key_type *__restrict__ update_list, smallsize update_size, updatable_cg_params *launch_params, bool perform_dels)
 {
@@ -436,7 +420,7 @@ GLOBALQUALIFIER void update_kernel(const key_type *__restrict__ update_list, sma
     /*
 
     Description on the above algorithms for Insertions:
-
+    --> we removed support for tombstones in final version of FliX
 
     The key ones we use are as follows:
 
@@ -942,36 +926,7 @@ void rebuild_structures_bucket_layer(
     DEBUG_REBUILD("Rebuilt on GPU: ", 5, partition_size, partition_count, partition_count_with_overflow, numnodes, node_stride);
     size_t max_bytes_during_rebuild;
 
-    // Call rebuild AS structure
-    // auto compacted_as = nullptr;
-    // create the compacted AS based on the representatives (not including the overflow node)
-    /*
-   auto compacted_as = cg::build_compacted_as_from_representatives<key_type>(
-       optix,
-       ordered_node_pairs_buffer.ptr(),
-       partition_count,
-       0,                                   // byte offset first entry
-       node_stride,                         // stride in bytes
-       node_stride * (partition_count - 1), // last rep offset
 
-#ifdef OPTIMIZATION_ON
-       node_stride + compute_key_offset_bytes<key_type>(), // offset to first key (successor)
-#else
-       0, //// respresentative_successor_offset =0 disable optimization,
-#endif
-       as_buffer,
-       rebuild_time_ms,
-       &max_bytes_during_rebuild);
-
-   max_bytes_during_rebuild += size_snapshot();
-
-   DEBUG_REBUILD("----Complete REBUILD-----", 3, max_bytes_during_rebuild, ordered_node_pairs_buffer.size_in_bytes(), node_stride);
-
-   if (build_bytes)
-       *build_bytes = std::max(max_bytes_during_rebuild, max_bytes_during_gpu_rebuild);
-
-   return compacted_as;
-   */
 }
 
 
@@ -1518,12 +1473,6 @@ private:
     uint32_t number_of_sms = 0;
     size_t max_shared_memory_bytes = 0;
 
-    // tree_metadata metadata;
-
-    // size_t shmem() {
-    //     return shared_bytes_to_load + shared_bytes_for_shuffle;
-    // }
-    //--------------
 
 public:
     static constexpr const char *name = "cg_rtx_index_updates";
@@ -1770,8 +1719,9 @@ public:
             if (build_bytes)
                 *build_bytes += launch_params_buffer.size_in_bytes();
 
-        DEBUG_BUILD_PARAMS("Initial Build Fill Size", 1, size);
-        DEBUG_BUILD_PARAMS("Build params", 3, initial_fill, size, key_offset_pair);
+        //DEBUG_BUILD_PARAMS("Output Initial Build Paramaters", 1, short_description().c_str());
+        //DEBUG_BUILD_PARAMS("Output Initial Build Paramaters", 0);
+        DEBUG_BUILD_PARAMS("Output Build params:", 3, initial_fill, size, key_offset_pair);
 
         DEBUG_BUILD_PARAMS("More Build params", 5, cache_line, node_size, partition_size, node_stride, percentage_initial_fill);
 
@@ -1831,49 +1781,24 @@ public:
             build_time_ms,
             build_bytes, initial_num_keys_each_node, total_allocation_region_nodes);
 
+       /*. Prior Version
         const size_t tree_n = static_cast<size_t>(partition_count_with_overflow);
-        // const size_t leaf_n = static_cast<size_t>(partition_count);
-        //---------------------------------------------------------------------
-
-        // Build tree using the per-partition maxima as keys.
-        // printf("Building Static Tree with %zu entries\n and size %zu\n", tree_n , size);
-
-        // build tree
-        // build_static_tree<key_type, node_size_log>(
-        //         (const uint8_t*) maxvalues_buffer.ptr(), tree_n, 0, sizeof(key_type),
-        //     metadata, tree_buffer, build_time_ms);
-        smallsize tree_entries_count = tree_n; // CHECK THE LEAF NODES FOR MAX VALUES
-
-        base_entries_count = tree_n; // if you still rely on this in wrapper
-                                     // build_static_tree_from_pivots<key_type, node_size_log, false>(
-                                     //     (const uint8_t*)maxvalues_buffer.ptr(), tree_n, 0, sizeof(key_type), sizeof(key_type) * (tree_entries_count - 1),
-                                     //     metadata, tree_buffer, build_time_ms);
-                                     // C2EX
-                                     // cuda_buffer<smallsize> reuse_list;
-                                     // reuse_list_buffer.alloc(total_allocation_region_nodes);
-
-        // reuse_list_buffer.alloc(partition_count_with_overflow);
-
-        // C2EX
-        //  reuse_list_buffer.zero();
-
+        smallsize tree_entries_count = tree_n; // not used 
+        base_entries_count = tree_n;  // not used 
         const size_t reuse_capacity = total_allocation_region_nodes; // must match allocation_buffer_count
         smallsize *d_reuse_list = nullptr;
         cudaError_t st = cudaSuccess;
-
         st = cudaMalloc(reinterpret_cast<void **>(&d_reuse_list),
                         reuse_capacity * sizeof(smallsize));
         assert(st == cudaSuccess && "cudaMalloc(reuse_list) failed");
-
         // Zero the entire reuse_list (byte 0 is fine for integer zero)
         st = cudaMemset(d_reuse_list, 0, reuse_capacity * sizeof(smallsize));
         assert(st == cudaSuccess && "cudaMemset(reuse_list) failed");
+        */
+
 
         setup_bucket_only_build_data<key_type><<<1, 1, 0, 0>>>(
             launch_params_buffer.ptr(),
-            // tree_buffer.ptr(),
-            // metadata,
-            // tree_entries_count,
             ordered_node_pairs_buffer.ptr(),
             allocation_buffer.ptr(),
             maxvalues_buffer.ptr(),
@@ -1881,8 +1806,6 @@ public:
             size,
             partition_size,
             node_size,
-            // copy_buffer,
-            // reuse_list_buffer.ptr(),
             reuse_list_buffer.ptr(),
             partition_count,
             partition_count_with_overflow,
@@ -1891,12 +1814,7 @@ public:
         cudaDeviceSynchronize();
         C2EX
 
-        // CHECK THE LEAF NODES FOR MAX VALUES
-        // static_tree.dump_tree_csv("debug/static_tree");      // writes two CSVs
-
-        // Free the allocated buffers after use
-        // cudaFree(copy_update_list);
-        // cudaFree(copy_offset_list);
+ 
     }
 
     void rebuild_bucket_layer_only(double *build_time_ms, size_t *build_bytes)
@@ -1932,22 +1850,17 @@ public:
         partition_count_with_overflow = new_bucket_count_with_overflow;
         partition_count = partition_count_with_overflow - 1;
         DEBUG_REBUILD("After Rebuild Partition Count", 3, partition_count, partition_count_with_overflow, initial_num_keys_each_node);
+        
+        /*. prior version of static tree
         const size_t tree_n = static_cast<size_t>(partition_count_with_overflow);
-
         // printf("REBuilding Static Tree with %u entries\n", tree_n);
-        smallsize tree_entries_count = tree_n; // CHECK THE LEAF NODES FOR MAX VALUES
-
-        base_entries_count = tree_n; // if you still rely on this in wrapper
-                                     // build_static_tree_from_pivots<key_type, node_size_log, false>(
-                                     //     (const uint8_t*)maxvalues_buffer.ptr(), tree_n, 0, sizeof(key_type), sizeof(key_type) * (tree_entries_count - 1),
-                                     //     metadata, tree_buffer, build_time_ms);
-                                     // C2EX
+        smallsize tree_entries_count = tree_n; // not used
+        base_entries_count = tree_n; 
+        */
 
         setup_bucket_only_build_data<key_type><<<1, 1, 0, 0>>>(
             launch_params_buffer.ptr(),
-            // tree_buffer.ptr(),
-            // metadata,
-            // tree_entries_count,
+           
             ordered_node_pairs_buffer.ptr(),
             allocation_buffer.ptr(),
             maxvalues_buffer.ptr(),

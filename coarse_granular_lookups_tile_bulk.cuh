@@ -2,6 +2,7 @@
 // File: coarse_granular_lookups_tile_bulk.cuh
 // Author: Rosina Kharal
 // Description: Implements coarse_granular_lookups_tile_bulk
+//              Bulk Queries- Lookups in FliX
 // Copyright (c) 2025 Justus Henneberg, Rosina Kharal
 // SPDX-License-Identifier: GPL-3.0-or-later
 // =============================================================================
@@ -24,8 +25,9 @@
 
 // Assumes available: not_found, tombstone, TILE_SIZE,
 // cg::extract/set, extract_key_node, extract_offset_node, get_lastposition_bytes.
+// testing each thread also picks a key from the query list
 template <typename key_type>
-DEVICEQUALIFIER void process_lookup_tile_bulk_ordered1(
+DEVICEQUALIFIER void process_lookup_tile_bulk_ordered1_querylist_opt(
     key_type bucket_max,
     smallsize minindex,
     smallsize maxindex,
@@ -146,18 +148,6 @@ DEVICEQUALIFIER void process_lookup_tile_bulk_ordered1(
             }
             */
         }
-
-        // ---- single-step writeout by all lanes that had any match ----
-        // (Note: this records only the last match per lane. If the query list contains
-        //  duplicates of the same key within this node, earlier duplicates are ignored here.
-        //  We can extend to handle duplicates later.)
-        // --const bool have_match = (my_query_index != not_found);
-        // ----(void)match_mask; // kept for parity/debug if you want to inspect it later
-
-        // All lanes with a match write once; writes are concurrent and generally coalesced
-        // ----- if (have_match) {
-        // -----results[my_query_index] = my_offset;
-        // ------- }
 
         tile.sync();
 
@@ -367,9 +357,7 @@ DEVICEQUALIFIER void process_lookup_tile_bulk_ordered_dup(
 
         const key_type key = next_search_key;
 
-        // if (next_search_key == 1754439130)
-        // if (lane ==0) printf("TOP Search Key BULK ORDERED: tile_id=%d, key=%llu \n",
-        //       tile_id, static_cast<unsigned long long>(key));
+       
 
         // Leader walks chain until node's max >= key
         if (lane == 0)
@@ -544,16 +532,7 @@ GLOBALQUALIFIER void lookup_kernel_tile_ordered_min_maxindex(
         static_cast<uint8_t *>(launch_params->ordered_node_pairs) +
         static_cast<size_t>(launch_params->node_stride) * static_cast<size_t>(tile_id);
 
-    // Perform ordered lookups over [minindex, maxindex] for this bucket
-    // Must match your expected signature; additional params appended: query_list, query_size, results
-
-    // if (lane ==0) printf("LOOKUP TILE BULK ORDERED: tile_id=%d, bucket=[%llu..%llu], query_range=[%d..%d]\n",
-    //   tile_id, static_cast<unsigned long long>(minkey), static_cast<unsigned long long>(maxkey),
-    // minindex, maxindex);
-
-    //  if (lane ==0) printf("LOOKUP TILE BULK ORDERED: tile_id=%d, bucket=[%llu..%llu], query_range=[%d..%d]\n",
-    //     tile_id, static_cast<unsigned long long>(minkey), static_cast<unsigned long long>(maxkey),
-    //     minindex, maxindex);
+   
 
     process_lookup_tile_bulk_ordered<key_type>(
         /*bucket_max*/ maxkey,
@@ -624,18 +603,7 @@ GLOBALQUALIFIER void lookup_kernel_tile_ordered(
         static_cast<uint8_t *>(launch_params->ordered_node_pairs) +
         static_cast<size_t>(launch_params->node_stride) * static_cast<size_t>(tile_id);
 
-    // Perform ordered lookups over [minindex, maxindex] for this bucket
-    // Must match your expected signature; additional params appended: query_list, query_size, results
-
-    // if (lane ==0) printf("LOOKUP TILE BULK ORDERED: tile_id=%d, bucket=[%llu..%llu], query_range=[%d..%d]\n",
-    //   tile_id, static_cast<unsigned long long>(minkey), static_cast<unsigned long long>(maxkey),
-    // minindex, maxindex);
-
-    // if (lane ==0) printf("GOING TO TILE BULK ORDERED: tile_id=%d, bucket=[%llu..%llu], query_range=[%d..%d]\n",
-    //  tile_id, static_cast<unsigned long long>(minkey), static_cast<unsigned long long>(maxkey),
-    //  minindex, maxindex);
-
-    // if (lane == 0) printf("Going to builk_ordered_dup  tile_id=%d LAUNCHED minindex=%d \n", tile_id, minindex);
+  
 
     process_lookup_tile_bulk_ordered_dup<key_type>(
         // process_lookup_tile_bulk_ordered<key_type>(
@@ -653,131 +621,9 @@ GLOBALQUALIFIER void lookup_kernel_tile_ordered(
     // if (lane ==0) printf("END LOOKUP TILE BULK ORDERED: tile_id=%d DONE\n", tile_id);
 }
 
-/*
-// not needed
-template <typename key_type, int16_t node_size_log, uint16_t cg_size_log, bool caching_enabled>
-INLINEQUALIFIER void launch_lookup_kernel_tile_ordered(
-    updatable_cg_params* launch_params,
-    const key_type* d_sorted_queries,
-    smallsize* d_results,
-    smallsize query_size,
-    cudaStream_t stream)
-{
-    const smallsize num_tiles = launch_params->partition_count_with_overflow;
-    const int threads = MAXBLOCKSIZE;                          // must be multiple of TILE_SIZE
-    const int tiles_per_block = threads / TILE_SIZE;
-    const int blocks = (num_tiles + tiles_per_block - 1) / tiles_per_block;
-
-    lookup_kernel_tile_ordered<key_type, node_size_log, cg_size_log, caching_enabled>
-        <<<blocks, threads, 0, stream>>>(launch_params, d_sorted_queries, d_results, query_size);
-}
-
-*/
-
-/*  COMPLETE VERSION
-
-template <typename key_type>
-DEVICEQUALIFIER void process_lookup_tile_bulk_ordered(
-    key_type bucket_max,
-    smallsize minindex,
-    smallsize maxindex,
-    updatable_cg_params *launch_params,
-    void *starting_node,
-    coop_g::thread_block_tile<TILE_SIZE> tile,
-    const key_type* __restrict__ query_list,
-    smallsize query_size,
-    smallsize* __restrict__ results)
-{
-    void*     allocation_buffer  = launch_params->allocation_buffer;
-    smallsize allocation_count   = launch_params->allocation_buffer_count;
-    smallsize node_stride        = launch_params->node_stride;
-    smallsize node_size          = launch_params->node_size;
-
-    const smallsize lastpos_off  = get_lastposition_bytes<key_type>(node_size);
-    const smallsize my_tid       = tile.thread_rank();
-    const smallsize tile_id      = blockIdx.x * (blockDim.x / tile.size()) + tile.meta_group_rank();
-    (void)tile_id; // kept for optional debug prints
-
-    void*    curr_node = starting_node;
-    key_type curr_max  = key_type{0};
-
-    smallsize i = minindex;
-    while (i <= maxindex)
-    {
-        const key_type key = query_list[i];
-
-        // Leader walks to a node that can cover 'key'
-        if (tile.thread_rank() == 0)
-        {
-            curr_max = cg::extract<key_type>(curr_node, 0);
-            while (curr_max < key)
-            {
-                const smallsize next_ptr = cg::extract<smallsize>(curr_node, lastpos_off);
-                if (next_ptr == 0 || (next_ptr - 1) >= allocation_count) {
-                    break;
-                }
-                curr_node = static_cast<uint8_t*>(allocation_buffer) + (static_cast<size_t>(next_ptr) - 1) * node_stride;
-                key_type next_max = cg::extract<key_type>(curr_node, 0);
-                if (next_max <= curr_max) { curr_max = next_max; break; } // guard
-                curr_max = next_max;
-            }
-        }
-
-        // Broadcast node pointer and max
-        uintptr_t p = reinterpret_cast<uintptr_t>(curr_node);
-        p        = tile.shfl(p, 0);
-        curr_node = reinterpret_cast<void*>(p);
-        curr_max  = tile.shfl(curr_max, 0);
-
-        // Stop if we can’t cover the current key or bucket bound exceeded
-        if (curr_max < key || key > bucket_max) break;
-
-        const smallsize curr_size = cg::extract<smallsize>(curr_node, sizeof(key_type));
-
-        // Snapshot per-lane node entry
-        key_type  my_key    = key_type(0);
-        smallsize my_offset = 0;
-        bool      lane_live = false;
-        if (my_tid < curr_size) {
-            my_key    = extract_key_node<key_type>(curr_node, my_tid + 1);
-            my_offset = extract_offset_node<smallsize>(curr_node, my_tid + 1);
-            lane_live = true; // keep simple; can re-add zero/tombstone filter later
-        }
-        tile.sync();
-
-        // Compute subrange [i, j_end) of queries covered by this node
-        smallsize scan_i = i;
-        while (scan_i <= maxindex && query_list[scan_i] <= curr_max) ++scan_i;
-        const smallsize j_end = scan_i; // first index outside this node
-
-        // Prefill results[i..j_end) = not_found (coalesced)
-        for (smallsize base = i; base < j_end; base += tile.size()) {
-            const smallsize qidx = base + my_tid;
-            if (qidx < j_end) results[qidx] = not_found;
-        }
-        tile.sync();
-
-        // Match-only writes: each lane compares against every query in [i, j_end)
-        for (smallsize q = i; q < j_end; ++q) {
-            const key_type qkey = query_list[q];
-            const bool eq = lane_live && (my_key == qkey);
-            if (eq) {
-                results[q] = my_offset; // overwrite prefill
-            }
-        }
-
-        // Advance past this node’s query range
-        i = j_end;
-
-        // Stop if next query outside the bucket
-        if (i <= maxindex && query_list[i] > bucket_max) break;
-    }
-}
 
 
 
-
-*/
 
 // Assumes: not_found, TILE_SIZE, cg::extract/set, extract_key_node, extract_offset_node, get_lastposition_bytes
 template <typename key_type>
@@ -1434,4 +1280,109 @@ DEVICEQUALIFIER void process_lookup_successor_tile_bulk_ordered_dup(
     }
 #endif
 }
+*/
+
+/*  COMPLETE VERSION
+
+template <typename key_type>
+DEVICEQUALIFIER void process_lookup_tile_bulk_ordered(
+    key_type bucket_max,
+    smallsize minindex,
+    smallsize maxindex,
+    updatable_cg_params *launch_params,
+    void *starting_node,
+    coop_g::thread_block_tile<TILE_SIZE> tile,
+    const key_type* __restrict__ query_list,
+    smallsize query_size,
+    smallsize* __restrict__ results)
+{
+    void*     allocation_buffer  = launch_params->allocation_buffer;
+    smallsize allocation_count   = launch_params->allocation_buffer_count;
+    smallsize node_stride        = launch_params->node_stride;
+    smallsize node_size          = launch_params->node_size;
+
+    const smallsize lastpos_off  = get_lastposition_bytes<key_type>(node_size);
+    const smallsize my_tid       = tile.thread_rank();
+    const smallsize tile_id      = blockIdx.x * (blockDim.x / tile.size()) + tile.meta_group_rank();
+    (void)tile_id; // kept for optional debug prints
+
+    void*    curr_node = starting_node;
+    key_type curr_max  = key_type{0};
+
+    smallsize i = minindex;
+    while (i <= maxindex)
+    {
+        const key_type key = query_list[i];
+
+        // Leader walks to a node that can cover 'key'
+        if (tile.thread_rank() == 0)
+        {
+            curr_max = cg::extract<key_type>(curr_node, 0);
+            while (curr_max < key)
+            {
+                const smallsize next_ptr = cg::extract<smallsize>(curr_node, lastpos_off);
+                if (next_ptr == 0 || (next_ptr - 1) >= allocation_count) {
+                    break;
+                }
+                curr_node = static_cast<uint8_t*>(allocation_buffer) + (static_cast<size_t>(next_ptr) - 1) * node_stride;
+                key_type next_max = cg::extract<key_type>(curr_node, 0);
+                if (next_max <= curr_max) { curr_max = next_max; break; } // guard
+                curr_max = next_max;
+            }
+        }
+
+        // Broadcast node pointer and max
+        uintptr_t p = reinterpret_cast<uintptr_t>(curr_node);
+        p        = tile.shfl(p, 0);
+        curr_node = reinterpret_cast<void*>(p);
+        curr_max  = tile.shfl(curr_max, 0);
+
+        // Stop if we can’t cover the current key or bucket bound exceeded
+        if (curr_max < key || key > bucket_max) break;
+
+        const smallsize curr_size = cg::extract<smallsize>(curr_node, sizeof(key_type));
+
+        // Snapshot per-lane node entry
+        key_type  my_key    = key_type(0);
+        smallsize my_offset = 0;
+        bool      lane_live = false;
+        if (my_tid < curr_size) {
+            my_key    = extract_key_node<key_type>(curr_node, my_tid + 1);
+            my_offset = extract_offset_node<smallsize>(curr_node, my_tid + 1);
+            lane_live = true; // keep simple; can re-add zero/tombstone filter later
+        }
+        tile.sync();
+
+        // Compute subrange [i, j_end) of queries covered by this node
+        smallsize scan_i = i;
+        while (scan_i <= maxindex && query_list[scan_i] <= curr_max) ++scan_i;
+        const smallsize j_end = scan_i; // first index outside this node
+
+        // Prefill results[i..j_end) = not_found (coalesced)
+        for (smallsize base = i; base < j_end; base += tile.size()) {
+            const smallsize qidx = base + my_tid;
+            if (qidx < j_end) results[qidx] = not_found;
+        }
+        tile.sync();
+
+        // Match-only writes: each lane compares against every query in [i, j_end)
+        for (smallsize q = i; q < j_end; ++q) {
+            const key_type qkey = query_list[q];
+            const bool eq = lane_live && (my_key == qkey);
+            if (eq) {
+                results[q] = my_offset; // overwrite prefill
+            }
+        }
+
+        // Advance past this node’s query range
+        i = j_end;
+
+        // Stop if next query outside the bucket
+        if (i <= maxindex && query_list[i] > bucket_max) break;
+    }
+}
+
+
+
+
 */

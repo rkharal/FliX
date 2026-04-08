@@ -2,6 +2,8 @@
 // File: coarse_granular_rebuild_groups.cuh
 // Author: Rosina Kharal
 // Description: Implements coarse_granular_rebuild_groups
+//              Rebuild functions using groups aka tiles
+//              Prior functions kept in for backward compatibility. 
 // Copyright (c) 2025 Justus Henneberg, Rosina Kharal
 // SPDX-License-Identifier: GPL-3.0-or-later
 // =============================================================================
@@ -18,23 +20,9 @@
 #include <cooperative_groups.h>
 namespace coop_g = cooperative_groups;
 
-// File: rebuild_kernel_group.cuh
 
-// file: rebuild_compact_tile.cuh
-
-
-
-// Assumed to exist in your codebase (as used in original code):
-// - smallsize
-// - TILE_SIZE
-// - cg::extract<T>, cg::set<T>
-// - get_lastposition_bytes<key_type>(node_size)
-// - extract_key_node<key_type>(node_ptr, slot)
-// - extract_offset_node<key_type>(node_ptr, slot)
-// - set_key_node<key_type>(node_ptr, slot, k)
-// - set_offset_node<key_type>(node_ptr, slot, off)
-// - CUERR (or replace with your error handling)
-
+//rebuilding and merging using one tile.
+// re verticalize the data structure
 template <typename key_type, int TILE_SIZE>
 __global__ void rebuild_kernel_compact_one_tile(
     void *node_buffer,
@@ -44,7 +32,7 @@ __global__ void rebuild_kernel_compact_one_tile(
     smallsize node_size,
     smallsize node_stride,
     smallsize partition_count_with_overflow,
-    smallsize total_nodes_used_from_AR,   // kept for optional debug hooks / consistency
+    smallsize total_nodes_used_from_AR,   // kept for optional debug functions for printing 
     smallsize *out_written_nodes)
 {
     (void)total_nodes_used_from_AR;
@@ -109,14 +97,14 @@ __global__ void rebuild_kernel_compact_one_tile(
             next_ptr_u = tile.shfl(next_ptr_u, 0);
             uint8_t *next_ptr = reinterpret_cast<uint8_t *>(next_ptr_u);
 
-            // Drop zero-size nodes (do not write output).
+            // Drop zero-size nodes 
             if (curr_size == 0 && (bucket_id != partition_count_with_overflow-1)) {
                 node_ptr = next_ptr;
                 tile.sync();
                 continue;
             }
 
-            // Lookahead for merge condition.
+            // Lookahead for merge possibility
             bool do_merge = false;
             smallsize next_size = 0;
             key_type next_max{};
@@ -177,7 +165,7 @@ __global__ void rebuild_kernel_compact_one_tile(
             // Cooperative copy of slots.
             //
             // Existing convention from your code:
-            // tid in [0..node_size-1] copies slot = tid+1 (=> slots [1..node_size]).
+            // tid in [0..node_size-1] 
             if (tid <= static_cast<unsigned>(node_size - 1))
             {
                 const smallsize slot = static_cast<smallsize>(tid + 1);
@@ -234,15 +222,12 @@ __global__ void rebuild_kernel_compact_one_tile(
             ++written;
             tile.sync();
         }
-#ifdef PRINT_REBUILD_MERGE_DATA
-        // if(tid ==0) printf("Bucket %u done | local merges in this bucket: %u\n", static_cast<unsigned>(bucket_id), static_cast<unsigned>(local_merge_count));
-    
-#endif
+
         global_merge_count += local_merge_count;
     }
 
     if (tid == 0) {
-        *out_written_nodes = written;
+        *out_written_nodes = written;  //send back
     }
 
 #ifdef PRINT_REBUILD_MERGE_DATA
@@ -268,7 +253,7 @@ smallsize rebuild_gpu_structures_compact_one_tile(
     void *node_buffer,
     void *representative_temp_buffer,
     void *allocation_buffer,
-    key_type *maxbuf, // kept for signature compatibility; not used here
+    key_type *maxbuf, 
     smallsize node_size,
     smallsize node_stride,
     double *time_ms,
@@ -277,7 +262,7 @@ smallsize rebuild_gpu_structures_compact_one_tile(
 {
     (void)maxbuf;
 
-    // Optional timing hook left intact; you can wrap with cudaEvent if desired.
+   
     if (time_ms) *time_ms = 0.0;
 
 
@@ -296,8 +281,7 @@ smallsize rebuild_gpu_structures_compact_one_tile(
     cudaMalloc(&d_out_count, sizeof(smallsize));
     cudaMemset(d_out_count, 0, sizeof(smallsize));
 
-    // One block, TILE_SIZE threads is enough (exactly one tile does the entire job).
-    // If your TILE_SIZE is > 1024 this would be invalid, but your prior code implies it's warp-like.
+    
     dim3 blocks(1);
     dim3 threads(TILE_SIZE);
 
@@ -386,8 +370,8 @@ __global__ void rebuild_kernel_tile_per_node(
             cg::set<smallsize>(rep_node, lastposition_bytes, static_cast<smallsize>(0));
         }
 
-        // Threads cooperatively copy key/offset slots [1 .. node_size-1].
-        // Slot 0 is reserved for metadata/header.
+        // Threads cooperatively copy
+        // Slot 0 is reserved for metadata
         if (tid <= static_cast<unsigned>(node_size - 1))
         {
             const smallsize slot = static_cast<smallsize>(tid + 1);
@@ -581,7 +565,7 @@ __global__ void rebuild_kernel_tile_per_node_DEBUG(
             tile.sync();
 
             if (tid == 0) {
-                DEBUG_REBUILD_DEV("Advance ok", (unsigned)tile_id, (unsigned)(node_index + 1), (unsigned)link);
+                DEBUG_REBUILD_DEV("Advance was ok", (unsigned)tile_id, (unsigned)(node_index + 1), (unsigned)link);
             }
         }
         else

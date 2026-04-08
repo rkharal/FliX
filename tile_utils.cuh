@@ -1,7 +1,8 @@
 // =============================================================================
 // File: tile_utils.cuh
-// Author: Justus Henneberg
-// Description: Implements tile_utils     
+// Author: Rosina Kharal
+// Description: Implements tile_utils  
+//              tile and non tile based operations used for investigation. Not all are used.
 // Copyright (c) 2025 Justus Henneberg, Rosina Kharal
 // SPDX-License-Identifier: GPL-3.0-or-later
 // =============================================================================
@@ -11,10 +12,8 @@
 
 #include "definitions_updates.cuh"  // includes TILE_SIZE, coop_g alias
 
-// Rightmost occurrence (upper_bound - 1). Returns -1 if key not found.
-// - array: sorted ascending with possible duplicates
-// - left:  starting index to search (inclusive)
-// - right: one past the last index to search (i.e., size), NOT the last index
+// Rightmost occurrence  Returns -1 if key not found.
+
 template <typename key_type>
 DEVICEQUALIFIER int
 binarySearchIndex_rightmost(const key_type* array, key_type key, int left, int right)
@@ -25,7 +24,7 @@ binarySearchIndex_rightmost(const key_type* array, key_type key, int left, int r
     int lo = left;
     int hi = right; // half-open [lo, hi)
 
-    // Find first index where array[idx] > key (upper_bound)
+   
     while (lo < hi) {
         int mid = lo + ((hi - lo) >> 1);
         if (array[mid] <= key) {
@@ -67,9 +66,7 @@ binarySearchIndex_leftmost_ge_orig(const key_type* __restrict__ array,
     // No element >= key
     if (lo >= right) return -1;
 
-    // lo is the first index with array[lo] >= key
-    // If it's equal to key and there are duplicates, explicitly walk left
-    // (Defensive: lower_bound already gives the leftmost equal, but this matches your request.)
+   
     if (array[lo] == key) {
         while (lo > left && array[lo - 1] == key) {
             --lo;
@@ -89,7 +86,7 @@ DEVICEQUALIFIER int binarySearchIndex_leftmost_ge(
 {
 
    // printf(" 0 Binary Search Leftmost GE: Called with left=%d right=%d key=%llu \n", left, right, static_cast<unsigned long long>(key));
-    // Harden obviously-bad inputs (prevents OOB if caller is wrong)
+    // 
     if (!array) return -80;
     if (right <= left) return -70;
     if (left < 0) left = 0;               // optional clamp; remove if you want strictness
@@ -142,7 +139,7 @@ binarySearchIndex_first_gt_leftmost_dup(const key_type* __restrict__ array,
         }
     }
 
-    // If no value > key exists
+    
     if (lo >= right) return -1;
 
     // 2) Walk left to the first duplicate of array[lo]
@@ -197,8 +194,7 @@ DEVICEQUALIFIER void perform_shift_insert_tile(
         set_offset_node<key_type>(curr_node, tid + 1, offset);
     }
 
-    tile.sync();  // <-- ensure all shifts done before inserting new key
-
+    tile.sync();  //
     if (tid == insert_index) {
         set_key_node<key_type>(curr_node, insert_index, static_cast<key_type>(insertkey));
         set_offset_node<key_type>(curr_node, insert_index, thisoffset);
@@ -347,11 +343,11 @@ DEVICEQUALIFIER void process_split_tile(
 
     auto linked_node = reinterpret_cast<uint8_t *>(allocation_buffer) + node_stride * free_index;
 
-    smallsize half = node_size / 2;          // e.g., 7 if node_size = 14
-    smallsize move_count = node_size - half; // e.g., 7
+    smallsize half = node_size / 2;          //  7 if node_size = 14
+    smallsize move_count = node_size - half; // ie 7
     smallsize t_index = t;
 
-    // Copy curr_node[half + 1 + t] → linked_node[t + 1]
+   
     if (t_index < move_count)
     {
         key_type k = extract_key_node<key_type>(curr_node, half + 1 + t_index);

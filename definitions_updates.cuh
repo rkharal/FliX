@@ -23,12 +23,10 @@
 #include <cooperative_groups.h>
 namespace coop_g = cooperative_groups;
 
-
-
 #define STRINGIFY(x) STRINGIFY2(x)
 #define STRINGIFY2(x) #x
 
-constexpr bool alternate_updates = true;
+constexpr bool alternate_updates = false;
 #define PERFORM_SUCCESSOR_PROBES 0
 ////----------------------------------------------------------------
 #pragma once
